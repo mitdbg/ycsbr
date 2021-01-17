@@ -25,9 +25,9 @@ Workload Workload::LoadFromFile(const std::string& file) {
       break;
     }
 
-    workload.emplace_back(op_mode == static_cast<uint32_t>(Request::Op::kRead)
-                              ? Request::Op::kRead
-                              : Request::Op::kUpdate,
+    workload.emplace_back(op_mode == static_cast<uint32_t>(Request::Operation::kRead)
+                              ? Request::Operation::kRead
+                              : Request::Operation::kUpdate,
                           key);
   }
 

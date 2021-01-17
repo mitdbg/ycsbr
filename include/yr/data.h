@@ -16,11 +16,33 @@ struct Record {
 };
 
 struct Request {
-  enum class Op : uint32_t { kRead = 0, kUpdate = 1 };
+  enum class Operation : uint8_t {
+    kInsert = 0,
+    kRead = 1,
+    kUpdate = 2,
+    kScan = 3
+  };
+  using Key = uint64_t;
 
-  Request(Op op, Record::Key key) : op(op), key(key) {}
-  Op op;
-  Record::Key key;
+  struct Encoded {
+    Encoded(Operation op, Key key) : op(op), key(key) {}
+    const Operation op;
+    const Key key;
+    // To save space, the `scan_amount` is only encoded for requests with
+    // Operation::kScan. The `scan_amount` is encoded directly following the
+    // request in the file.
+  } __attribute__((packed));
+
+  Request(Operation op, Key key, uint32_t scan_amount)
+      : op(op), key(key), scan_amount(scan_amount) {}
+  Request(Operation op, Key key) : Request(op, key, 0) {}
+  explicit Request(const Encoded& enc) : Request(enc.op, enc.key) {}
+  Request(const Encoded& enc, uint32_t scan_amount)
+      : Request(enc.op, enc.key, scan_amount) {}
+
+  const Operation op;
+  const Key key;
+  const uint32_t scan_amount;
 };
 
 class Workload {
