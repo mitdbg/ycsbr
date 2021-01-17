@@ -1,19 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace yr {
-
-struct Record {
-  using Key = uint64_t;
-  using Value = uint64_t;
-  Record(Key key, Value value) : key(key), value(value) {}
-  Key key;
-  Value value;
-};
 
 struct Request {
   enum class Operation : uint8_t {
@@ -25,7 +18,9 @@ struct Request {
   using Key = uint64_t;
 
   struct Encoded {
+    Encoded() : Encoded(Operation::kRead, 0) {}
     Encoded(Operation op, Key key) : op(op), key(key) {}
+
     const Operation op;
     const Key key;
     // To save space, the `scan_amount` is only encoded for requests with
@@ -33,55 +28,68 @@ struct Request {
     // request in the file.
   } __attribute__((packed));
 
-  Request(Operation op, Key key, uint32_t scan_amount)
-      : op(op), key(key), scan_amount(scan_amount) {}
-  Request(Operation op, Key key) : Request(op, key, 0) {}
-  explicit Request(const Encoded& enc) : Request(enc.op, enc.key) {}
-  Request(const Encoded& enc, uint32_t scan_amount)
-      : Request(enc.op, enc.key, scan_amount) {}
+  Request() : Request(Operation::kRead, 0, 0, nullptr, 0) {}
+
+  Request(Operation op, Key key, uint32_t scan_amount, char* value,
+          size_t value_size)
+      : op(op),
+        key(key),
+        scan_amount(scan_amount),
+        value(value),
+        value_size(value_size) {}
 
   const Operation op;
   const Key key;
+
+  // Number of keys to scan; non-zero only if `op` is `Operation::kScan`.
   const uint32_t scan_amount;
+
+  // Value to write; non-null only if `op` is `Operation::kInsert` or
+  // `Operation::kUpdate`.
+  const char* value;
+
+  // Size of the value to write in bytes; non-zero only if `op` is
+  // `Operation::kInsert` or `Operation::kUpdate`.
+  const size_t value_size;
 };
 
 class Workload {
  public:
-  static Workload LoadFromFile(const std::string& file);
+  struct Options {
+    // The size of the values for insert and update requests, in bytes.
+    size_t value_size = 1024;
+    int rng_seed = 42;
+  };
+  static Workload LoadFromFile(const std::string& file, const Options& options);
 
-  std::vector<Request>::iterator begin() { return requests_.begin(); }
-  std::vector<Request>::iterator end() { return requests_.end(); }
-  std::vector<Request>::const_iterator begin() const {
-    return requests_.begin();
-  }
-  std::vector<Request>::const_iterator end() const { return requests_.end(); }
+  using iterator = std::vector<Request>::iterator;
+  using const_iterator = std::vector<Request>::const_iterator;
+
+  iterator begin() { return requests_.begin(); }
+  iterator end() { return requests_.end(); }
+  const_iterator begin() const { return requests_.begin(); }
+  const_iterator end() const { return requests_.end(); }
   size_t size() const { return requests_.size(); }
 
+ protected:
+  Workload(std::vector<Request> requests, std::unique_ptr<char[]> values)
+      : requests_(std::move(requests)), values_(std::move(values)) {}
+
  private:
-  explicit Workload(std::vector<Request> requests)
-      : requests_(std::move(requests)) {}
   std::vector<Request> requests_;
+  // All values stored contiguously.
+  std::unique_ptr<char[]> values_;
 };
 
-class RecordsToLoad {
+class BulkLoadWorkload : public Workload {
  public:
-  static RecordsToLoad LoadFromFile(const std::string& file);
-
-  size_t TotalDataSizeBytes() const {
-    return records_.size() * sizeof(Record::Key) * 2;
-  }
-  std::vector<Record>::iterator begin() { return records_.begin(); }
-  std::vector<Record>::iterator end() { return records_.end(); }
-  std::vector<Record>::const_iterator begin() const { return records_.begin(); }
-  std::vector<Record>::const_iterator end() const { return records_.end(); }
-  size_t size() const { return records_.size(); }
+  static BulkLoadWorkload LoadFromFile(const std::string& file,
+                                       const Workload::Options& options);
 
  private:
-  explicit RecordsToLoad(std::vector<Record> records)
-      : records_(std::move(records)) {}
-  std::vector<Record> records_;
+  BulkLoadWorkload(Workload workload) : Workload(std::move(workload)) {}
 };
 
 }  // namespace yr
 
-#include "detail/data-inl.h"
+#include "impl/data-inl.h"

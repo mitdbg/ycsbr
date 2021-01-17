@@ -3,7 +3,8 @@
 
 #include "yr/benchmark.h"
 
-namespace {
+namespace yr {
+namespace impl {
 
 class CallOnExit {
  public:
@@ -15,41 +16,69 @@ class CallOnExit {
 };
 
 template <typename DatabaseInterface>
-yr::BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
-                                          const yr::Workload& workload) {
+BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
+                                     const Workload& workload) {
   uint64_t reads = 0;
   uint64_t writes = 0;
-  yr::Record::Value out_value;
+  size_t read_xor = 0;
+  size_t scan_xor = 0;
+
+  std::string value_out;
+  std::vector<std::pair<Record::Key, std::string>> scan_out;
 
   auto start = std::chrono::steady_clock::now();
   for (const auto& req : workload) {
-    if (req.op == yr::Request::Op::kRead) {
-      if (!db.Read(req.key, &out_value)) {
-        throw std::runtime_error(
-            "Failed to read a key requested by the benchmark!");
-      }
-      reads += 1;
+    switch (req.op) {
+      case Request::Operation::kRead:
+        value_out.clear();
+        if (!db.Read(req.key, &value_out)) {
+          throw std::runtime_error(
+              "Failed to read a key requested by the benchmark!");
+        }
+        read_xor ^= value_out.size();
+        reads += 1;
+        break;
 
-    } else if (req.op == yr::Request::Op::kUpdate) {
-      // NOTE: We are using a "dummy" value here.
-      if (!db.Update(req.key, writes)) {
-        throw std::runtime_error(
-            "Failed to update a key given by the benchmark!");
-      }
-      writes += 1;
+      case Request::Operation::kInsert:
+        value_out.clear();
+        if (!db.Insert(req.key, req.value, req.value_size)) {
+          throw std::runtime_error(
+              "Failed to insert a key requested by the benchmark!");
+        }
+        writes += 1;
+        break;
 
-    } else {
-      throw std::runtime_error("Unhandled request operation!");
+      case Request::Operation::kUpdate:
+        value_out.clear();
+        if (!db.Update(req.key, req.value, req.value_size)) {
+          throw std::runtime_error(
+              "Failed to update a key requested by the benchmark!");
+        }
+        writes += 1;
+        break;
+
+      case Request::Operation::kScan:
+        scan_out.clear();
+        scan_out.reserve(req.scan_amount);
+        if (!db.Scan(req.key, req.scan_amount, &scan_out) ||
+            scan_out.size() != req.scan_amount) {
+          throw std::runtime_error(
+              "Failed to scan a key range requested by the benchmark!");
+        }
+        scan_xor ^= scan_out.size();
+        reads += scan_out.size();
+        break;
+
+      default:
+        throw std::runtime_error("Unrecognized request operation!");
     }
   }
   auto end = std::chrono::steady_clock::now();
 
-  return {start, end, reads, writes};
+  return {start, end, reads, writes, read_xor ^ scan_xor};
 }
 
-}  // namespace
-
-namespace yr {
+}  // namespace impl
 
 template <typename DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
@@ -61,21 +90,21 @@ BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
 
 template <typename DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                 const RecordsToLoad& records,
+                                 const BulkLoadWorkload& load,
                                  const Workload& workload) {
   db.InitializeDatabase();
   CallOnExit guard([&db]() { db.DeleteDatabase(); });
-  db.BulkLoad(records);
+  db.BulkLoad(load);
   return RunTimedWorkloadImpl(db, workload);
 }
 
 template <typename DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                 const RecordsToLoad& records) {
+                                 const BulkLoadWorkload& load) {
   db.InitializeDatabase();
   CallOnExit guard([&db]() { db.DeleteDatabase(); });
   auto start = std::chrono::steady_clock::now();
-  db.BulkLoad(records);
+  db.BulkLoad(load);
   auto end = std::chrono::steady_clock::now();
   return {start, end, 0, records.size()};
 }
@@ -84,12 +113,13 @@ BenchmarkResult::BenchmarkResult()
     : run_time_(std::chrono::nanoseconds(0)), reads_(0), writes_(0) {}
 
 BenchmarkResult::BenchmarkResult(BenchmarkResult::TimePoint start,
-                                 BenchmarkResult::TimePoint end, uint64_t reads,
-                                 uint64_t writes)
+                                 BenchmarkResult::TimePoint end, size_t reads,
+                                 size_t writes, size_t read_xor)
     : run_time_(
           std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)),
       reads_(reads),
-      writes_(writes) {}
+      writes_(writes),
+      read_xor_(read_xor) {}
 
 template <typename Units>
 Units BenchmarkResult::RunTime() const {
@@ -104,15 +134,18 @@ double BenchmarkResult::ThroughputMopsPerSecond() const {
              .count();
 }
 
-uint64_t BenchmarkResult::NumReads() const { return reads_; }
+size_t BenchmarkResult::NumReads() const { return reads_; }
 
-uint64_t BenchmarkResult::NumWrites() const { return writes_; }
+size_t BenchmarkResult::NumWrites() const { return writes_; }
+
+size_t BenchmarkResult::ReadRequestChecksum() const { return read_xor_; }
 
 std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
   out << "Total run time (us):  "
       << res.RunTime<std::chrono::microseconds>().count() << std::endl;
   out << "Total reads:          " << res.NumReads() << std::endl;
   out << "Total writes:         " << res.NumWrites() << std::endl;
+  out << "Read checksum:        " << res.ReadRequestChecksum() << std::endl;
   out << "Throughput (Mops/s):  " << res.ThroughputMopsPerSecond();
   return out;
 }
