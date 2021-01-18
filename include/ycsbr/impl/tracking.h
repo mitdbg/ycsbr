@@ -26,8 +26,8 @@ class MetricsTracker {
     writes_.Record(run_time, write_bytes);
   }
 
-  void RecordScan(std::chrono::nanoseconds run_time, size_t scanned_bytes) {
-    scans_.Record(run_time, scanned_bytes);
+  void RecordScan(std::chrono::nanoseconds run_time, size_t scanned_bytes, size_t scanned_amount) {
+    scans_.RecordMultiple(run_time, scanned_bytes, scanned_amount);
   }
 
   BenchmarkResult Finalize(std::chrono::nanoseconds total_run_time) {

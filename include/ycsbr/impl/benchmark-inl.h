@@ -90,8 +90,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
         for (const auto& entry : scan_out) {
           scanned_bytes += entry.second.size();
         }
-        // NOTE: Will need to revisit scan metrics.
-        tracker.RecordScan(res.second, scanned_bytes);
+        tracker.RecordScan(res.second, scanned_bytes, scan_out.size());
         break;
       }
 
@@ -128,10 +127,14 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                         const BulkLoadWorkload& load) {
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
-  auto start = std::chrono::steady_clock::now();
+  const auto start = std::chrono::steady_clock::now();
   db.BulkLoad(load);
-  auto end = std::chrono::steady_clock::now();
-  return BenchmarkResult(end - start);
+  const auto end = std::chrono::steady_clock::now();
+
+  const auto run_time = end - start;
+  Meter loading;
+  loading.RecordMultiple(run_time, load.DatasetSizeBytes(), load.size());
+  return BenchmarkResult(run_time, FrozenMeter(), loading.Freeze(), FrozenMeter());
 }
 
 inline BenchmarkResult::BenchmarkResult(std::chrono::nanoseconds total_run_time)

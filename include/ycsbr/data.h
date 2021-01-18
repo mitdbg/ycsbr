@@ -86,7 +86,7 @@ class BulkLoadWorkload : public Workload {
  public:
   static BulkLoadWorkload LoadFromFile(const std::string& file,
                                               const Workload::Options& options);
-
+  size_t DatasetSizeBytes() const;
  private:
   BulkLoadWorkload(Workload workload) : Workload(std::move(workload)) {}
 };

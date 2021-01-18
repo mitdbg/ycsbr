@@ -79,4 +79,12 @@ inline BulkLoadWorkload BulkLoadWorkload::LoadFromFile(
   return BulkLoadWorkload(std::move(workload));
 }
 
+inline size_t BulkLoadWorkload::DatasetSizeBytes() const {
+  size_t total_size = 0;
+  for (const auto& request : *this) {
+    total_size += sizeof(request.key) + request.value_size;
+  }
+  return total_size;
+}
+
 }  // namespace ycsbr
