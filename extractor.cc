@@ -6,13 +6,13 @@
 #include <string>
 #include <unordered_map>
 
-#include "yr/data.h"
+#include "ycsbr/data.h"
 
 namespace fs = std::filesystem;
 
 namespace {
 
-using Op = yr::Request::Operation;
+using Op = ycsbr::Request::Operation;
 
 const std::unordered_map<std::string, Op> kStringToOp = {
     {"INSERT", Op::kInsert},
@@ -47,8 +47,9 @@ void ExtractYCSBWorkload(const std::string& output_file) {
     iss >> discard;
     iss >> key_string;
 
-    const yr::Request::Key key = strtoull(key_string.c_str() + 4, nullptr, 10);
-    const yr::Request::Encoded encoded(operation, key);
+    const ycsbr::Request::Key key =
+        strtoull(key_string.c_str() + 4, nullptr, 10);
+    const ycsbr::Request::Encoded encoded(operation, key);
     output.write(reinterpret_cast<const char*>(&encoded), sizeof(encoded));
 
     // Encode the scan amount if the request is a SCAN operation
@@ -59,8 +60,10 @@ void ExtractYCSBWorkload(const std::string& output_file) {
     std::string scan_amount_string;
     iss >> scan_amount_string;
 
-    const uint32_t scan_amount = strtoul(scan_amount_string.c_str(), nullptr, 10);
-    output.write(reinterpret_cast<const char*>(&scan_amount), sizeof(scan_amount));
+    const uint32_t scan_amount =
+        strtoul(scan_amount_string.c_str(), nullptr, 10);
+    output.write(reinterpret_cast<const char*>(&scan_amount),
+                 sizeof(scan_amount));
   }
 }
 

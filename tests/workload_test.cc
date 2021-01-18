@@ -2,11 +2,11 @@
 
 #include "gtest/gtest.h"
 #include "workloads/fixtures.h"
-#include "yr/data.h"
+#include "ycsbr/data.h"
 
 namespace {
 
-using namespace yr;
+using namespace ycsbr;
 
 TEST_F(WorkloadLoadA, LoadBulkLoad) {
   const Workload::Options options;

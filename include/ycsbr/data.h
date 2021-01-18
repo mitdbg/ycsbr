@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-namespace yr {
+namespace ycsbr {
 
 struct Request {
   enum class Operation : uint8_t {
@@ -91,6 +91,6 @@ class BulkLoadWorkload : public Workload {
   BulkLoadWorkload(Workload workload) : Workload(std::move(workload)) {}
 };
 
-}  // namespace yr
+}  // namespace ycsbr
 
 #include "impl/data-inl.h"

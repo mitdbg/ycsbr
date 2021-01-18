@@ -1,9 +1,9 @@
-// Implementation of declarations in yr/data.h. Do not include this header!
+// Implementation of declarations in ycsbr/data.h. Do not include this header!
 #include <fstream>
 #include <random>
 #include <stdexcept>
 
-namespace yr {
+namespace ycsbr {
 
 Workload Workload::LoadFromFile(const std::string& file,
                                 const Options& options) {
@@ -79,4 +79,4 @@ BulkLoadWorkload BulkLoadWorkload::LoadFromFile(
   return BulkLoadWorkload(std::move(workload));
 }
 
-}  // namespace yr
+}  // namespace ycsbr

@@ -1,12 +1,12 @@
-#include "yr/benchmark.h"
+#include "ycsbr/benchmark.h"
 
 #include "gtest/gtest.h"
-#include "yr/data.h"
+#include "ycsbr/data.h"
 #include "workloads/fixtures.h"
 
 namespace {
 
-using namespace yr;
+using namespace ycsbr;
 
 class TestDatabaseInterface {
  public:

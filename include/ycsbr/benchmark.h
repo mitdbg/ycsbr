@@ -5,9 +5,9 @@
 #include <utility>
 #include <vector>
 
-#include "yr/data.h"
+#include "ycsbr/data.h"
 
-namespace yr {
+namespace ycsbr {
 
 class BenchmarkResult;
 
@@ -99,6 +99,6 @@ class ExampleDatabaseInterface final {
       std::vector<std::pair<Request::Key, std::string>>* scan_out) = 0;
 };
 
-}  // namespace yr
+}  // namespace ycsbr
 
 #include "impl/benchmark-inl.h"

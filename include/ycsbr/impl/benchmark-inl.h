@@ -1,7 +1,7 @@
-// Implementation of declarations in benchmark.h. Do not include this header!
+// Implementation of declarations in yscbr/benchmark.h. Do not include this header!
 #include <functional>
 
-namespace yr {
+namespace ycsbr {
 namespace impl {
 
 class CallOnExit {
@@ -151,4 +151,4 @@ std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
   return out;
 }
 
-}  // namespace yr
+}  // namespace ycsbr
