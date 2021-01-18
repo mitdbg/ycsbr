@@ -5,8 +5,8 @@
 
 namespace ycsbr {
 
-Workload Workload::LoadFromFile(const std::string& file,
-                                const Options& options) {
+inline Workload Workload::LoadFromFile(const std::string& file,
+                                       const Options& options) {
   if (options.value_size == 0) {
     throw std::invalid_argument("Options::value_size must be at least 1.");
   }
@@ -66,7 +66,7 @@ Workload Workload::LoadFromFile(const std::string& file,
   return Workload(std::move(workload), std::move(values));
 }
 
-BulkLoadWorkload BulkLoadWorkload::LoadFromFile(
+inline BulkLoadWorkload BulkLoadWorkload::LoadFromFile(
     const std::string& file, const Workload::Options& options) {
   Workload workload = Workload::LoadFromFile(file, options);
   for (const auto& request : workload) {

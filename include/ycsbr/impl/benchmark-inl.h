@@ -1,5 +1,8 @@
-// Implementation of declarations in yscbr/benchmark.h. Do not include this header!
+// Implementation of declarations in yscbr/benchmark.h. Do not include this
+// header!
 #include <functional>
+
+#include "tracking.h"
 
 namespace ycsbr {
 namespace impl {
@@ -13,13 +16,19 @@ class CallOnExit {
   std::function<void()> fn_;
 };
 
+template <typename Callable>
+inline std::pair<bool, std::chrono::nanoseconds> MeasureRunTime(
+    Callable callable) {
+  const auto start = std::chrono::steady_clock::now();
+  bool succeeded = callable();
+  const auto end = std::chrono::steady_clock::now();
+  return {succeeded, end - start};
+}
+
 template <class DatabaseInterface>
-BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
-                                     const Workload& workload) {
-  uint64_t reads = 0;
-  uint64_t writes = 0;
-  size_t read_xor = 0;
-  size_t scan_xor = 0;
+inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
+                                            const Workload& workload) {
+  MetricsTracker tracker;
 
   std::string value_out;
   std::vector<std::pair<Request::Key, std::string>> scan_out;
@@ -27,69 +36,87 @@ BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
   auto start = std::chrono::steady_clock::now();
   for (const auto& req : workload) {
     switch (req.op) {
-      case Request::Operation::kRead:
+      case Request::Operation::kRead: {
         value_out.clear();
-        if (!db.Read(req.key, &value_out)) {
+        auto res = MeasureRunTime(
+            [&db, &req, &value_out]() { return db.Read(req.key, &value_out); });
+        if (!res.first) {
           throw std::runtime_error(
               "Failed to read a key requested by the benchmark!");
         }
-        read_xor ^= value_out.size();
-        reads += 1;
+        tracker.RecordRead(res.second, value_out.size());
         break;
+      }
 
-      case Request::Operation::kInsert:
-        value_out.clear();
-        if (!db.Insert(req.key, req.value, req.value_size)) {
+      case Request::Operation::kInsert: {
+        auto res = MeasureRunTime([&db, &req]() {
+          return db.Insert(req.key, req.value, req.value_size);
+        });
+        if (!res.first) {
           throw std::runtime_error(
               "Failed to insert a key requested by the benchmark!");
         }
-        writes += 1;
+        // Inserts count the whole record size, since this should be the first
+        // time the entire record is written to the DB.
+        tracker.RecordWrite(res.second, req.value_size + sizeof(req.key));
         break;
+      }
 
-      case Request::Operation::kUpdate:
-        value_out.clear();
-        if (!db.Update(req.key, req.value, req.value_size)) {
+      case Request::Operation::kUpdate: {
+        auto res = MeasureRunTime([&db, &req]() {
+          return db.Update(req.key, req.value, req.value_size);
+        });
+        if (!res.first) {
           throw std::runtime_error(
               "Failed to update a key requested by the benchmark!");
         }
-        writes += 1;
+        // Updates only record the value size, since the key should already
+        // exist in the DB.
+        tracker.RecordWrite(res.second, req.value_size);
         break;
+      }
 
-      case Request::Operation::kScan:
+      case Request::Operation::kScan: {
         scan_out.clear();
         scan_out.reserve(req.scan_amount);
-        if (!db.Scan(req.key, req.scan_amount, &scan_out) ||
-            scan_out.size() != req.scan_amount) {
+        auto res = MeasureRunTime([&db, &req, &scan_out]() {
+          return db.Scan(req.key, req.scan_amount, &scan_out);
+        });
+        if (!res.first || scan_out.size() != req.scan_amount) {
           throw std::runtime_error(
               "Failed to scan a key range requested by the benchmark!");
         }
-        scan_xor ^= scan_out.size();
-        reads += scan_out.size();
+        size_t scanned_bytes = 0;
+        for (const auto& entry : scan_out) {
+          scanned_bytes += entry.second.size();
+        }
+        // NOTE: Will need to revisit scan metrics.
+        tracker.RecordScan(res.second, scanned_bytes);
         break;
+      }
 
       default:
         throw std::runtime_error("Unrecognized request operation!");
     }
   }
   auto end = std::chrono::steady_clock::now();
-
-  return {start, end, reads, writes, read_xor ^ scan_xor};
+  return tracker.Finalize(end - start);
 }
 
 }  // namespace impl
 
 template <class DatabaseInterface>
-BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                 const Workload& workload) {
+inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
+                                        const Workload& workload) {
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   return impl::RunTimedWorkloadImpl(db, workload);
 }
 
 template <class DatabaseInterface>
-BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                 const BulkLoadWorkload& load,
-                                 const Workload& workload) {
+inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
+                                        const BulkLoadWorkload& load,
+                                        const Workload& workload) {
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   db.BulkLoad(load);
@@ -97,56 +124,55 @@ BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
 }
 
 template <class DatabaseInterface>
-BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                 const BulkLoadWorkload& load) {
+inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
+                                        const BulkLoadWorkload& load) {
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   auto start = std::chrono::steady_clock::now();
   db.BulkLoad(load);
   auto end = std::chrono::steady_clock::now();
-  return {start, end, 0, load.size(), 0};
+  return BenchmarkResult(end - start);
 }
 
-BenchmarkResult::BenchmarkResult()
-    : run_time_(std::chrono::nanoseconds(0)),
-      reads_(0),
-      writes_(0),
-      read_xor_(0) {}
+inline BenchmarkResult::BenchmarkResult(std::chrono::nanoseconds total_run_time)
+    : BenchmarkResult(total_run_time, FrozenMeter(), FrozenMeter(),
+                      FrozenMeter()) {}
 
-BenchmarkResult::BenchmarkResult(BenchmarkResult::TimePoint start,
-                                 BenchmarkResult::TimePoint end, size_t reads,
-                                 size_t writes, size_t read_xor)
-    : run_time_(
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)),
+inline BenchmarkResult::BenchmarkResult(std::chrono::nanoseconds total_run_time,
+                                        FrozenMeter reads, FrozenMeter writes,
+                                        FrozenMeter scans)
+    : run_time_(total_run_time),
       reads_(reads),
       writes_(writes),
-      read_xor_(read_xor) {}
+      scans_(scans) {}
 
 template <typename Units>
-Units BenchmarkResult::RunTime() const {
+inline Units BenchmarkResult::RunTime() const {
   return std::chrono::duration_cast<Units>(run_time_);
 }
 
-double BenchmarkResult::ThroughputMopsPerSecond() const {
-  uint64_t total_ops = reads_ + writes_;
+inline double BenchmarkResult::ThroughputMopsPerSecond() const {
+  uint64_t total_ops =
+      reads_.NumOperations() + writes_.NumOperations() + scans_.NumOperations();
   return total_ops /
          (double)std::chrono::duration_cast<std::chrono::microseconds>(
              run_time_)
              .count();
 }
 
-size_t BenchmarkResult::NumReads() const { return reads_; }
+inline size_t BenchmarkResult::NumReads() const {
+  return reads_.NumOperations();
+}
 
-size_t BenchmarkResult::NumWrites() const { return writes_; }
+inline size_t BenchmarkResult::NumWrites() const {
+  return writes_.NumOperations();
+}
 
-size_t BenchmarkResult::ReadRequestChecksum() const { return read_xor_; }
-
-std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
+inline std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
   out << "Total run time (us):  "
       << res.RunTime<std::chrono::microseconds>().count() << std::endl;
   out << "Total reads:          " << res.NumReads() << std::endl;
   out << "Total writes:         " << res.NumWrites() << std::endl;
-  out << "Read checksum:        " << res.ReadRequestChecksum() << std::endl;
   out << "Throughput (Mops/s):  " << res.ThroughputMopsPerSecond();
   return out;
 }

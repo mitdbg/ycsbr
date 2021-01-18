@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "ycsbr/data.h"
+#include "ycsbr/meter.h"
 
 namespace ycsbr {
 
@@ -36,13 +37,10 @@ BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                  const BulkLoadWorkload& load);
 
 class BenchmarkResult {
- private:
-  using TimePoint = std::chrono::time_point<std::chrono::steady_clock>;
-
  public:
-  BenchmarkResult();
-  BenchmarkResult(TimePoint start, TimePoint end, size_t reads, size_t writes,
-                  size_t read_xor);
+  BenchmarkResult(std::chrono::nanoseconds total_run_time);
+  BenchmarkResult(std::chrono::nanoseconds total_run_time, FrozenMeter reads,
+                  FrozenMeter writes, FrozenMeter scans);
 
   template <typename Units>
   Units RunTime() const;
@@ -51,16 +49,12 @@ class BenchmarkResult {
   size_t NumReads() const;
   size_t NumWrites() const;
 
-  // Used to discourage the compiler from optimizing away reads in the
-  // benchmark.
-  size_t ReadRequestChecksum() const;
-
  private:
-  std::chrono::nanoseconds run_time_;
-  const size_t reads_, writes_, read_xor_;
+  const std::chrono::nanoseconds run_time_;
+  const FrozenMeter reads_, writes_, scans_;
 };
 
-inline std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res);
+std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res);
 
 // This is an example `DatabaseInterface` - you need to implement all of these
 // methods to be able to use `RunTimedWorkload()` above.
