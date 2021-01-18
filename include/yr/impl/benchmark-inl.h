@@ -1,8 +1,6 @@
 // Implementation of declarations in benchmark.h. Do not include this header!
 #include <functional>
 
-#include "yr/benchmark.h"
-
 namespace yr {
 namespace impl {
 
@@ -24,7 +22,7 @@ BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
   size_t scan_xor = 0;
 
   std::string value_out;
-  std::vector<std::pair<Record::Key, std::string>> scan_out;
+  std::vector<std::pair<Request::Key, std::string>> scan_out;
 
   auto start = std::chrono::steady_clock::now();
   for (const auto& req : workload) {
@@ -84,8 +82,8 @@ template <typename DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                  const Workload& workload) {
   db.InitializeDatabase();
-  CallOnExit guard([&db]() { db.DeleteDatabase(); });
-  return RunTimedWorkloadImpl(db, workload);
+  impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
+  return impl::RunTimedWorkloadImpl(db, workload);
 }
 
 template <typename DatabaseInterface>
@@ -93,24 +91,27 @@ BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                  const BulkLoadWorkload& load,
                                  const Workload& workload) {
   db.InitializeDatabase();
-  CallOnExit guard([&db]() { db.DeleteDatabase(); });
+  impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   db.BulkLoad(load);
-  return RunTimedWorkloadImpl(db, workload);
+  return impl::RunTimedWorkloadImpl(db, workload);
 }
 
 template <typename DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                  const BulkLoadWorkload& load) {
   db.InitializeDatabase();
-  CallOnExit guard([&db]() { db.DeleteDatabase(); });
+  impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   auto start = std::chrono::steady_clock::now();
   db.BulkLoad(load);
   auto end = std::chrono::steady_clock::now();
-  return {start, end, 0, records.size()};
+  return {start, end, 0, load.size(), 0};
 }
 
 BenchmarkResult::BenchmarkResult()
-    : run_time_(std::chrono::nanoseconds(0)), reads_(0), writes_(0) {}
+    : run_time_(std::chrono::nanoseconds(0)),
+      reads_(0),
+      writes_(0),
+      read_xor_(0) {}
 
 BenchmarkResult::BenchmarkResult(BenchmarkResult::TimePoint start,
                                  BenchmarkResult::TimePoint end, size_t reads,

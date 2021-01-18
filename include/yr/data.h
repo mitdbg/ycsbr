@@ -60,7 +60,8 @@ class Workload {
     size_t value_size = 1024;
     int rng_seed = 42;
   };
-  static Workload LoadFromFile(const std::string& file, const Options& options);
+  inline static Workload LoadFromFile(const std::string& file,
+                                      const Options& options);
 
   using iterator = std::vector<Request>::iterator;
   using const_iterator = std::vector<Request>::const_iterator;
@@ -83,8 +84,8 @@ class Workload {
 
 class BulkLoadWorkload : public Workload {
  public:
-  static BulkLoadWorkload LoadFromFile(const std::string& file,
-                                       const Workload::Options& options);
+  inline static BulkLoadWorkload LoadFromFile(const std::string& file,
+                                              const Workload::Options& options);
 
  private:
   BulkLoadWorkload(Workload workload) : Workload(std::move(workload)) {}

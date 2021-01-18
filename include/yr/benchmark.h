@@ -90,13 +90,13 @@ class ExampleDatabaseInterface final {
                       size_t value_size) = 0;
 
   // Read the value at the specified key. Return true if the read succeeded.
-  virtual bool Read(Record::Key key, std::string* value_out) = 0;
+  virtual bool Read(Request::Key key, std::string* value_out) = 0;
 
   // Scan the key range starting from `key` for `amount` records. Return true if
   // the scan succeeded.
   virtual bool Scan(
-      Record::Key key, size_t amount,
-      std::vector<std::pair<Record::Key, std::string>>* scan_out) = 0;
+      Request::Key key, size_t amount,
+      std::vector<std::pair<Request::Key, std::string>>* scan_out) = 0;
 };
 
 }  // namespace yr

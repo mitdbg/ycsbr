@@ -3,8 +3,6 @@
 #include <random>
 #include <stdexcept>
 
-#include "yr/data.h"
-
 namespace yr {
 
 Workload Workload::LoadFromFile(const std::string& file,
