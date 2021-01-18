@@ -134,7 +134,8 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   const auto run_time = end - start;
   Meter loading;
   loading.RecordMultiple(run_time, load.DatasetSizeBytes(), load.size());
-  return BenchmarkResult(run_time, FrozenMeter(), loading.Freeze(), FrozenMeter());
+  return BenchmarkResult(run_time, FrozenMeter(), loading.Freeze(),
+                         FrozenMeter());
 }
 
 inline BenchmarkResult::BenchmarkResult(std::chrono::nanoseconds total_run_time)
@@ -163,21 +164,48 @@ inline double BenchmarkResult::ThroughputMopsPerSecond() const {
              .count();
 }
 
-inline size_t BenchmarkResult::NumReads() const {
-  return reads_.NumOperations();
+inline double BenchmarkResult::ThroughputReadMiBPerSecond() const {
+  size_t total_read = reads_.TotalBytes() + scans_.TotalBytes();
+  double read_mib = total_read / 1024.0 / 1024.0;
+  return read_mib / RunTime<std::chrono::duration<double>>().count();
 }
 
-inline size_t BenchmarkResult::NumWrites() const {
-  return writes_.NumOperations();
+inline double BenchmarkResult::ThroughputWriteMiBPerSecond() const {
+  double write_mib = writes_.TotalBytes();
+  return write_mib / RunTime<std::chrono::duration<double>>().count();
 }
 
 inline std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
-  out << "Total run time (us):  "
+  out << "Total run time (us):       "
       << res.RunTime<std::chrono::microseconds>().count() << std::endl;
-  out << "Total reads:          " << res.NumReads() << std::endl;
-  out << "Total writes:         " << res.NumWrites() << std::endl;
-  out << "Throughput (Mops/s):  " << res.ThroughputMopsPerSecond();
+  out << "Total reads:               " << res.Reads().NumOperations()
+      << std::endl;
+  out << "Total writes:              " << res.Writes().NumOperations()
+      << std::endl;
+  out << "Total scanned keys:        " << res.Scans().NumOperations()
+      << std::endl;
+  out << "Throughput (Mops/s):       " << res.ThroughputMopsPerSecond()
+      << std::endl;
+  out << "Read Throughput (MiB/s):   " << res.ThroughputReadMiBPerSecond()
+      << std::endl;
+  out << "Write Throughput (MiB/s):  " << res.ThroughputWriteMiBPerSecond();
   return out;
+}
+
+inline void BenchmarkResult::PrintAsCSV(std::ostream& out) const {
+  out << "num_reads,num_writes,num_scanned_keys,reads_ns_p99,writes_ns_p99,"
+         "mops_per_s,read_mib_per_s,write_mib_per_s"
+      << std::endl;
+  out << Reads().NumOperations() << ",";
+  out << Writes().NumOperations() << ",";
+  out << Scans().NumOperations() << ",";
+  out << Reads().LatencyPercentile<std::chrono::nanoseconds>(0.99).count()
+      << ",";
+  out << Writes().LatencyPercentile<std::chrono::nanoseconds>(0.99).count()
+      << ",";
+  out << ThroughputMopsPerSecond() << ",";
+  out << ThroughputReadMiBPerSecond() << ",";
+  out << ThroughputWriteMiBPerSecond() << std::endl;
 }
 
 }  // namespace ycsbr

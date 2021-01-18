@@ -40,8 +40,51 @@ class FrozenMeter {
   size_t TotalBytes() const { return bytes_; }
   size_t NumOperations() const { return op_count_; }
 
+  template <typename Units>
+  Units LatencyMin() const {
+    return latencies_.empty()
+               ? Units(0)
+               : std::chrono::duration_cast<Units>(latencies_.front());
+  }
+
+  template <typename Units>
+  Units LatencyMean() const {
+    if (latencies_.empty()) {
+      return Units(0);
+    }
+    auto total = std::accumulate(latencies_.begin(), latencies_.end(),
+                                 std::chrono::nanoseconds(0));
+    return std::chrono::duration_cast<Units>(total / latencies_.size());
+  }
+
+  template <typename Units>
+  Units LatencyMax() const {
+    return latencies_.empty()
+               ? Units(0)
+               : std::chrono::duration_cast<Units>(latencies_.back());
+  }
+
+  // Returns percentile latency, where `percentile` is a value between 0.0 and
+  // 1.0 inclusive (i.e., `percentile = 0.99` represents the 99th percentile).
+  template <typename Units>
+  Units LatencyPercentile(double percentile) const {
+    if (percentile > 1.0 || percentile < 0.0) {
+      throw std::invalid_argument(
+          "Percentile out of range (must be between 0.0 and 1.0 inclusive).");
+    }
+    if (latencies_.empty()) {
+      return Units(0);
+    }
+    size_t index = percentile * latencies_.size();
+    if (index == latencies_.size()) {
+      --index;
+    }
+    return std::chrono::duration_cast<Units>(latencies_.at(index));
+  }
+
  private:
   friend class Meter;
+  // REQUIRES: `meter.latencies_` is in ascending order.
   FrozenMeter(Meter meter)
       : bytes_(meter.bytes_),
         op_count_(meter.op_count_),

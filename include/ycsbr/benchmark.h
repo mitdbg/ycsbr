@@ -44,10 +44,16 @@ class BenchmarkResult {
 
   template <typename Units>
   Units RunTime() const;
-  double ThroughputMopsPerSecond() const;
 
-  size_t NumReads() const;
-  size_t NumWrites() const;
+  double ThroughputMopsPerSecond() const;
+  double ThroughputReadMiBPerSecond() const;
+  double ThroughputWriteMiBPerSecond() const;
+
+  const FrozenMeter& Reads() const { return reads_; }
+  const FrozenMeter& Writes() const { return writes_; }
+  const FrozenMeter& Scans() const { return scans_; }
+
+  void PrintAsCSV(std::ostream& out) const;
 
  private:
   const std::chrono::nanoseconds run_time_;
