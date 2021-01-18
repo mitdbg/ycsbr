@@ -13,7 +13,7 @@ class CallOnExit {
   std::function<void()> fn_;
 };
 
-template <typename DatabaseInterface>
+template <class DatabaseInterface>
 BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
                                      const Workload& workload) {
   uint64_t reads = 0;
@@ -78,7 +78,7 @@ BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
 
 }  // namespace impl
 
-template <typename DatabaseInterface>
+template <class DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                  const Workload& workload) {
   db.InitializeDatabase();
@@ -86,7 +86,7 @@ BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   return impl::RunTimedWorkloadImpl(db, workload);
 }
 
-template <typename DatabaseInterface>
+template <class DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                  const BulkLoadWorkload& load,
                                  const Workload& workload) {
@@ -96,7 +96,7 @@ BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   return impl::RunTimedWorkloadImpl(db, workload);
 }
 
-template <typename DatabaseInterface>
+template <class DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                  const BulkLoadWorkload& load) {
   db.InitializeDatabase();

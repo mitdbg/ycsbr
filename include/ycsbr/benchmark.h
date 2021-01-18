@@ -60,7 +60,7 @@ class BenchmarkResult {
   const size_t reads_, writes_, read_xor_;
 };
 
-std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res);
+inline std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res);
 
 // This is an example `DatabaseInterface` - you need to implement all of these
 // methods to be able to use `RunTimedWorkload()` above.
