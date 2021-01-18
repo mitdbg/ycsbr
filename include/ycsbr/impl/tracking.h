@@ -26,13 +26,15 @@ class MetricsTracker {
     writes_.Record(run_time, write_bytes);
   }
 
-  void RecordScan(std::chrono::nanoseconds run_time, size_t scanned_bytes, size_t scanned_amount) {
+  void RecordScan(std::chrono::nanoseconds run_time, size_t scanned_bytes,
+                  size_t scanned_amount) {
     scans_.RecordMultiple(run_time, scanned_bytes, scanned_amount);
   }
 
   BenchmarkResult Finalize(std::chrono::nanoseconds total_run_time) {
-    return BenchmarkResult(total_run_time, reads_.Freeze(), writes_.Freeze(),
-                           scans_.Freeze());
+    return BenchmarkResult(total_run_time, std::move(reads_).Freeze(),
+                           std::move(writes_).Freeze(),
+                           std::move(scans_).Freeze());
   }
 
  private:

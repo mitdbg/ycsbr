@@ -134,7 +134,7 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   const auto run_time = end - start;
   Meter loading;
   loading.RecordMultiple(run_time, load.DatasetSizeBytes(), load.size());
-  return BenchmarkResult(run_time, FrozenMeter(), loading.Freeze(),
+  return BenchmarkResult(run_time, FrozenMeter(), std::move(loading).Freeze(),
                          FrozenMeter());
 }
 

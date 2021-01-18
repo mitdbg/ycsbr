@@ -24,7 +24,7 @@ class MeterTest : public testing::Test {
 };
 
 TEST_F(MeterTest, LatencyMinMaxMean) {
-  FrozenMeter with_entries(m_with_entries.Freeze());
+  FrozenMeter with_entries(std::move(m_with_entries).Freeze());
   ASSERT_EQ(with_entries.LatencyMin<std::chrono::nanoseconds>(),
             std::chrono::nanoseconds(1));
   ASSERT_EQ(with_entries.LatencyMax<std::chrono::nanoseconds>(),
@@ -32,7 +32,7 @@ TEST_F(MeterTest, LatencyMinMaxMean) {
   ASSERT_EQ(with_entries.LatencyMean<std::chrono::nanoseconds>(),
             std::chrono::nanoseconds(5));
 
-  FrozenMeter empty(m_empty.Freeze());
+  FrozenMeter empty(std::move(m_empty).Freeze());
   ASSERT_EQ(empty.LatencyMin<std::chrono::nanoseconds>(),
             std::chrono::nanoseconds(0));
   ASSERT_EQ(empty.LatencyMax<std::chrono::nanoseconds>(),
@@ -42,7 +42,7 @@ TEST_F(MeterTest, LatencyMinMaxMean) {
 }
 
 TEST_F(MeterTest, LatencyPercentile) {
-  FrozenMeter with_entries(m_with_entries.Freeze());
+  FrozenMeter with_entries(std::move(m_with_entries).Freeze());
   ASSERT_EQ(with_entries.LatencyPercentile<std::chrono::nanoseconds>(0.5),
             std::chrono::nanoseconds(3));
   ASSERT_EQ(with_entries.LatencyPercentile<std::chrono::nanoseconds>(0.99),
@@ -58,7 +58,7 @@ TEST_F(MeterTest, LatencyPercentile) {
 }
 
 TEST_F(MeterTest, OperationsBytes) {
-  FrozenMeter with_entries(m_with_entries.Freeze());
+  FrozenMeter with_entries(std::move(m_with_entries).Freeze());
   ASSERT_EQ(with_entries.NumOperations(), 7);
   ASSERT_EQ(with_entries.TotalBytes(), 70);
 }

@@ -25,7 +25,7 @@ class Meter {
     op_count_ += count;
   }
 
-  FrozenMeter Freeze();
+  FrozenMeter Freeze() &&;
 
  private:
   friend class FrozenMeter;
@@ -94,9 +94,9 @@ class FrozenMeter {
   const std::vector<std::chrono::nanoseconds> latencies_;
 };
 
-inline FrozenMeter Meter::Freeze() {
+inline FrozenMeter Meter::Freeze() && {
   std::sort(latencies_.begin(), latencies_.end());
-  return FrozenMeter(*this);
+  return FrozenMeter(std::move(*this));
 }
 
 }  // namespace ycsbr
