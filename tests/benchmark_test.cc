@@ -1,8 +1,6 @@
-#include "ycsbr/benchmark.h"
-
 #include "gtest/gtest.h"
-#include "ycsbr/data.h"
 #include "workloads/fixtures.h"
+#include "ycsbr/ycsbr.h"
 
 namespace {
 
@@ -13,9 +11,7 @@ class TestDatabaseInterface {
   void InitializeDatabase() { ++initialize_calls; }
   void DeleteDatabase() { ++delete_calls; }
 
-  void BulkLoad(const BulkLoadWorkload& load) {
-    ++bulk_load_calls;
-  }
+  void BulkLoad(const BulkLoadWorkload& load) { ++bulk_load_calls; }
 
   bool Update(Request::Key key, const char* value, size_t value_size) {
     ++update_calls;
@@ -74,8 +70,7 @@ TEST_F(WorkloadLoadA, BenchBulkLoad) {
 
 TEST_F(WorkloadRunA, BenchRunA) {
   const Workload::Options options;
-  const Workload load =
-      Workload::LoadFromFile(workload_file, options);
+  const Workload load = Workload::LoadFromFile(workload_file, options);
 
   TestDatabaseInterface db;
   auto res = RunTimedWorkload(db, load);
@@ -91,8 +86,7 @@ TEST_F(WorkloadRunA, BenchRunA) {
 TEST_F(WorkloadRunE, BenchRunE) {
   // Workload E is a range scan workload with some inserts.
   const Workload::Options options;
-  const Workload load =
-      Workload::LoadFromFile(workload_file, options);
+  const Workload load = Workload::LoadFromFile(workload_file, options);
 
   TestDatabaseInterface db;
   auto res = RunTimedWorkload(db, load);

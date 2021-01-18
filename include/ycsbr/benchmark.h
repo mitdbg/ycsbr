@@ -5,8 +5,8 @@
 #include <utility>
 #include <vector>
 
-#include "ycsbr/data.h"
-#include "ycsbr/meter.h"
+#include "data.h"
+#include "meter.h"
 
 namespace ycsbr {
 

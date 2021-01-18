@@ -4,8 +4,8 @@
 #include <cstdlib>
 #include <vector>
 
-#include "ycsbr/benchmark.h"
-#include "ycsbr/meter.h"
+#include "../benchmark.h"
+#include "../meter.h"
 
 namespace ycsbr {
 namespace impl {

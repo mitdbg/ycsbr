@@ -2,7 +2,7 @@
 
 #include "gtest/gtest.h"
 #include "workloads/fixtures.h"
-#include "ycsbr/data.h"
+#include "ycsbr/ycsbr.h"
 
 namespace {
 
