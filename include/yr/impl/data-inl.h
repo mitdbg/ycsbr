@@ -1,6 +1,7 @@
 // Implementation of declarations in yr/data.h. Do not include this header!
 #include <fstream>
 #include <random>
+#include <stdexcept>
 
 #include "yr/data.h"
 
@@ -16,14 +17,18 @@ Workload Workload::LoadFromFile(const std::string& file,
     throw std::runtime_error(
         "Failed to load workload from file. Error opening: " + file);
   }
-  input.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+  input.exceptions(std::ifstream::badbit);
 
   size_t num_writes = 0;
   std::vector<Request> workload_raw;
   Request::Encoded encoded;
-  while (!input.eof()) {
+  while (true) {
     uint32_t scan_amount = 0;
     input.read(reinterpret_cast<char*>(&encoded), sizeof(encoded));
+    if (input.eof()) {
+      break;
+    }
+
     if (encoded.op == Request::Operation::kScan) {
       input.read(reinterpret_cast<char*>(&scan_amount), sizeof(scan_amount));
     }

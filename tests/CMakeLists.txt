@@ -6,3 +6,7 @@ FetchContent_Declare(
   GIT_TAG        release-1.10.0
 )
 FetchContent_MakeAvailable(googletest)
+
+add_executable(test_runner
+  workload_test.cc)
+target_link_libraries(test_runner PRIVATE ycsbrunner gtest gtest_main)
