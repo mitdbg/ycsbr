@@ -171,7 +171,7 @@ inline double BenchmarkResult::ThroughputReadMiBPerSecond() const {
 }
 
 inline double BenchmarkResult::ThroughputWriteMiBPerSecond() const {
-  double write_mib = writes_.TotalBytes();
+  double write_mib = writes_.TotalBytes() / 1024.0 / 1024.0;
   return write_mib / RunTime<std::chrono::duration<double>>().count();
 }
 
