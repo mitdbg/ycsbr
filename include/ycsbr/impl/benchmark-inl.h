@@ -30,6 +30,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
                                             const Workload& workload) {
   MetricsTracker tracker;
 
+  uint32_t read_xor = 0;
   std::string value_out;
   std::vector<std::pair<Request::Key, std::string>> scan_out;
 
@@ -45,6 +46,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
               "Failed to read a key requested by the benchmark!");
         }
         tracker.RecordRead(res.second, value_out.size());
+        read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
         break;
       }
 
@@ -91,6 +93,8 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
           scanned_bytes += entry.second.size();
         }
         tracker.RecordScan(res.second, scanned_bytes, scan_out.size());
+        read_xor ^=
+            *reinterpret_cast<const uint32_t*>(scan_out.front().second.c_str());
         break;
       }
 
@@ -99,7 +103,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
     }
   }
   auto end = std::chrono::steady_clock::now();
-  return tracker.Finalize(end - start);
+  return tracker.Finalize(end - start, read_xor);
 }
 
 }  // namespace impl
@@ -134,21 +138,22 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   const auto run_time = end - start;
   Meter loading;
   loading.RecordMultiple(run_time, load.DatasetSizeBytes(), load.size());
-  return BenchmarkResult(run_time, FrozenMeter(), std::move(loading).Freeze(),
-                         FrozenMeter());
+  return BenchmarkResult(run_time, 0, FrozenMeter(),
+                         std::move(loading).Freeze(), FrozenMeter());
 }
 
 inline BenchmarkResult::BenchmarkResult(std::chrono::nanoseconds total_run_time)
-    : BenchmarkResult(total_run_time, FrozenMeter(), FrozenMeter(),
+    : BenchmarkResult(total_run_time, 0, FrozenMeter(), FrozenMeter(),
                       FrozenMeter()) {}
 
 inline BenchmarkResult::BenchmarkResult(std::chrono::nanoseconds total_run_time,
-                                        FrozenMeter reads, FrozenMeter writes,
-                                        FrozenMeter scans)
+                                        uint32_t read_xor, FrozenMeter reads,
+                                        FrozenMeter writes, FrozenMeter scans)
     : run_time_(total_run_time),
       reads_(reads),
       writes_(writes),
-      scans_(scans) {}
+      scans_(scans),
+      read_xor_(read_xor) {}
 
 template <typename Units>
 inline Units BenchmarkResult::RunTime() const {
@@ -188,7 +193,9 @@ inline std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
       << std::endl;
   out << "Read Throughput (MiB/s):   " << res.ThroughputReadMiBPerSecond()
       << std::endl;
-  out << "Write Throughput (MiB/s):  " << res.ThroughputWriteMiBPerSecond();
+  out << "Write Throughput (MiB/s):  " << res.ThroughputWriteMiBPerSecond()
+      << std::endl;
+  out << "Read XOR (ignore):         " << res.read_xor_;
   return out;
 }
 

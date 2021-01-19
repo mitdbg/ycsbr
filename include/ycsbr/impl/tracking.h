@@ -31,8 +31,9 @@ class MetricsTracker {
     scans_.RecordMultiple(run_time, scanned_bytes, scanned_amount);
   }
 
-  BenchmarkResult Finalize(std::chrono::nanoseconds total_run_time) {
-    return BenchmarkResult(total_run_time, std::move(reads_).Freeze(),
+  BenchmarkResult Finalize(std::chrono::nanoseconds total_run_time,
+                           uint32_t read_xor = 0) {
+    return BenchmarkResult(total_run_time, read_xor, std::move(reads_).Freeze(),
                            std::move(writes_).Freeze(),
                            std::move(scans_).Freeze());
   }

@@ -11,8 +11,8 @@ constexpr size_t kNumUniqueValues = 1024;
 
 inline Workload Workload::LoadFromFile(const std::string& file,
                                        const Options& options) {
-  if (options.value_size == 0) {
-    throw std::invalid_argument("Options::value_size must be at least 1.");
+  if (options.value_size < 4) {
+    throw std::invalid_argument("Options::value_size must be at least 4.");
   }
   std::ifstream input(file, std::ios::in | std::ios::binary);
   if (!input) {

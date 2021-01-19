@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,8 +40,8 @@ BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
 class BenchmarkResult {
  public:
   BenchmarkResult(std::chrono::nanoseconds total_run_time);
-  BenchmarkResult(std::chrono::nanoseconds total_run_time, FrozenMeter reads,
-                  FrozenMeter writes, FrozenMeter scans);
+  BenchmarkResult(std::chrono::nanoseconds total_run_time, uint32_t read_xor,
+                  FrozenMeter reads, FrozenMeter writes, FrozenMeter scans);
 
   template <typename Units>
   Units RunTime() const;
@@ -56,8 +57,10 @@ class BenchmarkResult {
   void PrintAsCSV(std::ostream& out) const;
 
  private:
+  friend std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res);
   const std::chrono::nanoseconds run_time_;
   const FrozenMeter reads_, writes_, scans_;
+  const uint32_t read_xor_;
 };
 
 std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res);

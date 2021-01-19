@@ -19,6 +19,15 @@ TEST_F(WorkloadLoadA, LoadBulkLoad) {
   ASSERT_EQ(as_workload.size(), workload_size);
 }
 
+TEST_F(WorkloadLoadA, SmallValueInvalid) {
+  Workload::Options options;
+  options.value_size = 1;
+  ASSERT_THROW(Workload::LoadFromFile(workload_file, options),
+               std::invalid_argument);
+  ASSERT_THROW(BulkLoadWorkload::LoadFromFile(workload_file, options),
+               std::invalid_argument);
+}
+
 TEST_F(WorkloadRunA, InvalidLoadBulkLoad) {
   const Workload::Options options;
   ASSERT_THROW(BulkLoadWorkload::LoadFromFile(workload_file, options),
