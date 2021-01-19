@@ -5,6 +5,10 @@
 
 namespace ycsbr {
 
+// We recycle values in the synthetic dataset to avoid having to allocate too
+// much memory for very large bulk loads.
+constexpr size_t kNumUniqueValues = 1024;
+
 inline Workload Workload::LoadFromFile(const std::string& file,
                                        const Options& options) {
   if (options.value_size == 0) {
@@ -38,7 +42,7 @@ inline Workload Workload::LoadFromFile(const std::string& file,
   }
 
   // Create the values and initialize them.
-  size_t total_value_size = num_writes * options.value_size;
+  size_t total_value_size = kNumUniqueValues * options.value_size;
   std::unique_ptr<char[]> values = std::make_unique<char[]>(total_value_size);
   std::mt19937 rng(options.rng_seed);
   size_t num_u32 = total_value_size / sizeof(uint32_t);
@@ -54,9 +58,10 @@ inline Workload Workload::LoadFromFile(const std::string& file,
     const auto& raw = workload_raw[i];
     if (raw.op == Request::Operation::kInsert ||
         raw.op == Request::Operation::kUpdate) {
-      workload.emplace_back(raw.op, raw.key, raw.scan_amount,
-                            &values[value_index * options.value_size],
-                            options.value_size);
+      workload.emplace_back(
+          raw.op, raw.key, raw.scan_amount,
+          &values[(value_index % kNumUniqueValues) * options.value_size],
+          options.value_size);
       value_index += 1;
     } else {
       workload.emplace_back(raw);
