@@ -200,16 +200,17 @@ inline std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
 }
 
 inline void BenchmarkResult::PrintAsCSV(std::ostream& out) const {
-  out << "num_reads,num_writes,num_scanned_keys,reads_ns_p99,writes_ns_p99,"
-         "mops_per_s,read_mib_per_s,write_mib_per_s"
+  using nanoseconds = std::chrono::nanoseconds;
+  out << "num_reads,num_writes,num_scanned_keys,reads_ns_p99,reads_ns_p50,"
+         "writes_ns_p99,writes_ns_p50,mops_per_s,read_mib_per_s,write_mib_per_s"
       << std::endl;
   out << Reads().NumOperations() << ",";
   out << Writes().NumOperations() << ",";
   out << Scans().NumOperations() << ",";
-  out << Reads().LatencyPercentile<std::chrono::nanoseconds>(0.99).count()
-      << ",";
-  out << Writes().LatencyPercentile<std::chrono::nanoseconds>(0.99).count()
-      << ",";
+  out << Reads().LatencyPercentile<nanoseconds>(0.99).count() << ",";
+  out << Reads().LatencyPercentile<nanoseconds>(0.5).count() << ",";
+  out << Writes().LatencyPercentile<nanoseconds>(0.99).count() << ",";
+  out << Writes().LatencyPercentile<nanoseconds>(0.5).count() << ",";
   out << ThroughputMopsPerSecond() << ",";
   out << ThroughputReadMiBPerSecond() << ",";
   out << ThroughputWriteMiBPerSecond() << std::endl;
