@@ -39,14 +39,17 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
     switch (req.op) {
       case Request::Operation::kRead: {
         value_out.clear();
-        auto res = MeasureRunTime(
-            [&db, &req, &value_out]() { return db.Read(req.key, &value_out); });
-        if (!res.first) {
-          throw std::runtime_error(
-              "Failed to read a key requested by the benchmark!");
-        }
+        auto res = MeasureRunTime([&db, &req, &value_out, &read_xor]() {
+          bool succeeded = db.Read(req.key, &value_out);
+          if (!succeeded) {
+            throw std::runtime_error(
+                "Failed to read a key requested by the benchmark!");
+          }
+          // Force a read of the extracted value. We want to count this time
+          // against the read latency too.
+          read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
+        });
         tracker.RecordRead(res.second, value_out.size());
-        read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
         break;
       }
 
@@ -81,20 +84,22 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
       case Request::Operation::kScan: {
         scan_out.clear();
         scan_out.reserve(req.scan_amount);
-        auto res = MeasureRunTime([&db, &req, &scan_out]() {
-          return db.Scan(req.key, req.scan_amount, &scan_out);
+        auto res = MeasureRunTime([&db, &req, &scan_out, &read_xor]() {
+          bool succeeded = db.Scan(req.key, req.scan_amount, &scan_out);
+          if (!succeeded || scan_out.size() != req.scan_amount) {
+            throw std::runtime_error(
+                "Failed to scan a key range requested by the benchmark!");
+          }
+          // Force a read of the first extracted value. We want to count this
+          // time against the read latency too.
+          read_xor ^= *reinterpret_cast<const uint32_t*>(
+              scan_out.front().second.c_str());
         });
-        if (!res.first || scan_out.size() != req.scan_amount) {
-          throw std::runtime_error(
-              "Failed to scan a key range requested by the benchmark!");
-        }
         size_t scanned_bytes = 0;
         for (const auto& entry : scan_out) {
           scanned_bytes += entry.second.size();
         }
         tracker.RecordScan(res.second, scanned_bytes, scan_out.size());
-        read_xor ^=
-            *reinterpret_cast<const uint32_t*>(scan_out.front().second.c_str());
         break;
       }
 
