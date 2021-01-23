@@ -23,7 +23,7 @@ struct BenchmarkOptions {
   // `pin_to_core_map[i]` must hold the core id that thread `i` should be pinned
   // to. If `pin_to_core_map` is not of size `num_threads`, the worker threads
   // will not be pinned to any cores.
-  std::vector<size_t> pin_to_core_map;
+  std::vector<unsigned> pin_to_core_map;
 };
 
 // Runs the specified workload.

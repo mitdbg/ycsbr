@@ -16,7 +16,8 @@ class MetricsTracker {
                  size_t num_writes_hint = 100000, size_t num_scans_hint = 1000)
       : reads_(num_reads_hint),
         writes_(num_writes_hint),
-        scans_(num_scans_hint) {}
+        scans_(num_scans_hint),
+        read_xor_(0) {}
 
   void RecordRead(std::chrono::nanoseconds run_time, size_t read_bytes) {
     reads_.Record(run_time, read_bytes);
@@ -31,15 +32,17 @@ class MetricsTracker {
     scans_.RecordMultiple(run_time, scanned_bytes, scanned_amount);
   }
 
-  BenchmarkResult Finalize(std::chrono::nanoseconds total_run_time,
-                           uint32_t read_xor = 0) {
-    return BenchmarkResult(total_run_time, read_xor, std::move(reads_).Freeze(),
-                           std::move(writes_).Freeze(),
-                           std::move(scans_).Freeze());
+  void SetReadXOR(uint32_t value) { read_xor_ = value; }
+
+  BenchmarkResult Finalize(std::chrono::nanoseconds total_run_time) {
+    return BenchmarkResult(
+        total_run_time, read_xor_, std::move(reads_).Freeze(),
+        std::move(writes_).Freeze(), std::move(scans_).Freeze());
   }
 
  private:
   Meter reads_, writes_, scans_;
+  uint32_t read_xor_;
 };
 
 }  // namespace impl

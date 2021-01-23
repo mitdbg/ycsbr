@@ -2,7 +2,9 @@
 // header!
 #include <functional>
 
+#include "flag.h"
 #include "tracking.h"
+#include "worker.h"
 
 namespace ycsbr {
 namespace impl {
@@ -16,101 +18,23 @@ class CallOnExit {
   std::function<void()> fn_;
 };
 
-template <typename Callable>
-inline std::pair<bool, std::chrono::nanoseconds> MeasureRunTime(
-    Callable callable) {
-  const auto start = std::chrono::steady_clock::now();
-  bool succeeded = callable();
-  const auto end = std::chrono::steady_clock::now();
-  return {succeeded, end - start};
-}
-
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
                                             const Workload& workload) {
-  MetricsTracker tracker;
+  Flag start_running;
+  Worker<DatabaseInterface> worker(&db, &workload, 0, workload.size(),
+                                   &start_running, std::optional<unsigned>());
 
-  uint32_t read_xor = 0;
-  std::string value_out;
-  std::vector<std::pair<Request::Key, std::string>> scan_out;
+  // Busy wait for the worker to start up.
+  while (!worker.IsReady());
 
-  auto start = std::chrono::steady_clock::now();
-  for (const auto& req : workload) {
-    switch (req.op) {
-      case Request::Operation::kRead: {
-        value_out.clear();
-        auto res = MeasureRunTime([&db, &req, &value_out, &read_xor]() {
-          bool succeeded = db.Read(req.key, &value_out);
-          if (!succeeded) {
-            throw std::runtime_error(
-                "Failed to read a key requested by the benchmark!");
-          }
-          // Force a read of the extracted value. We want to count this time
-          // against the read latency too.
-          read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
-          return succeeded;
-        });
-        tracker.RecordRead(res.second, value_out.size());
-        break;
-      }
+  // Run the workload.
+  const auto start = std::chrono::steady_clock::now();
+  start_running.Raise();
+  worker.Wait();
+  const auto end = std::chrono::steady_clock::now();
 
-      case Request::Operation::kInsert: {
-        auto res = MeasureRunTime([&db, &req]() {
-          return db.Insert(req.key, req.value, req.value_size);
-        });
-        if (!res.first) {
-          throw std::runtime_error(
-              "Failed to insert a key requested by the benchmark!");
-        }
-        // Inserts count the whole record size, since this should be the first
-        // time the entire record is written to the DB.
-        tracker.RecordWrite(res.second, req.value_size + sizeof(req.key));
-        break;
-      }
-
-      case Request::Operation::kUpdate: {
-        auto res = MeasureRunTime([&db, &req]() {
-          return db.Update(req.key, req.value, req.value_size);
-        });
-        if (!res.first) {
-          throw std::runtime_error(
-              "Failed to update a key requested by the benchmark!");
-        }
-        // Updates only record the value size, since the key should already
-        // exist in the DB.
-        tracker.RecordWrite(res.second, req.value_size);
-        break;
-      }
-
-      case Request::Operation::kScan: {
-        scan_out.clear();
-        scan_out.reserve(req.scan_amount);
-        auto res = MeasureRunTime([&db, &req, &scan_out, &read_xor]() {
-          bool succeeded = db.Scan(req.key, req.scan_amount, &scan_out);
-          if (!succeeded || scan_out.size() != req.scan_amount) {
-            throw std::runtime_error(
-                "Failed to scan a key range requested by the benchmark!");
-          }
-          // Force a read of the first extracted value. We want to count this
-          // time against the read latency too.
-          read_xor ^= *reinterpret_cast<const uint32_t*>(
-              scan_out.front().second.c_str());
-          return succeeded;
-        });
-        size_t scanned_bytes = 0;
-        for (const auto& entry : scan_out) {
-          scanned_bytes += entry.second.size();
-        }
-        tracker.RecordScan(res.second, scanned_bytes, scan_out.size());
-        break;
-      }
-
-      default:
-        throw std::runtime_error("Unrecognized request operation!");
-    }
-  }
-  auto end = std::chrono::steady_clock::now();
-  return tracker.Finalize(end - start, read_xor);
+  return std::move(worker).GetResults().Finalize(end - start);
 }
 
 }  // namespace impl
