@@ -13,26 +13,43 @@ namespace ycsbr {
 
 class BenchmarkResult;
 
+struct BenchmarkOptions {
+  // Number of threads used to run the workload (must be at least 1). The
+  // requests in the workload will be evenly divided among the worker threads.
+  size_t num_threads = 1;
+
+  // Used to specify how to pin the worker threads to physical cores, if
+  // desired. The vector's size must be equal to `num_threads`, and
+  // `pin_to_core_map[i]` must hold the core id that thread `i` should be pinned
+  // to. If `pin_to_core_map` is not of size `num_threads`, the worker threads
+  // will not be pinned to any cores.
+  std::vector<size_t> pin_to_core_map;
+};
+
 // Runs the specified workload.
 //
 // NOTE: This assumes that the database already has an appropriate dataset
 // loaded. If the database does not, use the overload with `BulkLoadWorkload`
 // instead.
 template <class DatabaseInterface>
-BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                 const Workload& workload);
+BenchmarkResult RunTimedWorkload(
+    DatabaseInterface& db, const Workload& workload,
+    const BenchmarkOptions& options = BenchmarkOptions());
 
 // Loads the specified records into the database and then runs the specified
 // (timed) workload.
 //
 // NOTE: Only running the workload is timed. Loading the records is performed by
-// calling `BulkLoad()` on the specified `DatabaseInterface`.
+// calling `BulkLoad()` on the specified `DatabaseInterface`. The bulk load
+// always runs on a single thread.
 template <class DatabaseInterface>
-BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                 const BulkLoadWorkload& load,
-                                 const Workload& workload);
+BenchmarkResult RunTimedWorkload(
+    DatabaseInterface& db, const BulkLoadWorkload& load,
+    const Workload& workload,
+    const BenchmarkOptions& options = BenchmarkOptions());
 
 // Measures the time it takes to load the specified records using bulk load.
+// NOTE: The bulk load always runs on a single thread.
 template <class DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                  const BulkLoadWorkload& load);
@@ -57,7 +74,8 @@ class BenchmarkResult {
   void PrintAsCSV(std::ostream& out) const;
 
  private:
-  friend std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res);
+  friend std::ostream& operator<<(std::ostream& out,
+                                  const BenchmarkResult& res);
   const std::chrono::nanoseconds run_time_;
   const FrozenMeter reads_, writes_, scans_;
   const uint32_t read_xor_;

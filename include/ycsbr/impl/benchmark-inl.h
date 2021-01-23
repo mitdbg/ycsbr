@@ -117,7 +117,8 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
 
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                        const Workload& workload) {
+                                        const Workload& workload,
+                                        const BenchmarkOptions& options) {
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   return impl::RunTimedWorkloadImpl(db, workload);
@@ -126,7 +127,8 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                         const BulkLoadWorkload& load,
-                                        const Workload& workload) {
+                                        const Workload& workload,
+                                        const BenchmarkOptions& options) {
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   db.BulkLoad(load);
