@@ -26,6 +26,7 @@ class Meter {
   }
 
   FrozenMeter Freeze() &&;
+  static FrozenMeter FreezeGroup(std::vector<Meter> meters);
 
  private:
   friend class FrozenMeter;
@@ -84,11 +85,17 @@ class FrozenMeter {
 
  private:
   friend class Meter;
+
   // REQUIRES: `meter.latencies_` is in ascending order.
   FrozenMeter(Meter meter)
-      : bytes_(meter.bytes_),
-        op_count_(meter.op_count_),
-        latencies_(std::move(meter.latencies_)) {}
+      : FrozenMeter(meter.bytes_, meter.op_count_,
+                    std::move(meter.latencies_)) {}
+
+  // REQUIRES: `latencies` is in ascending order.
+  FrozenMeter(size_t bytes, size_t op_count,
+              std::vector<std::chrono::nanoseconds> latencies)
+      : bytes_(bytes), op_count_(op_count), latencies_(std::move(latencies)) {}
+
   const size_t bytes_;
   const size_t op_count_;
   const std::vector<std::chrono::nanoseconds> latencies_;
@@ -97,6 +104,28 @@ class FrozenMeter {
 inline FrozenMeter Meter::Freeze() && {
   std::sort(latencies_.begin(), latencies_.end());
   return FrozenMeter(std::move(*this));
+}
+
+inline FrozenMeter Meter::FreezeGroup(std::vector<Meter> meters) {
+  std::vector<std::chrono::nanoseconds> all_latencies;
+  size_t op_count = 0;
+  size_t bytes = 0;
+
+  size_t total_size = 0;
+  for (const auto& meter : meters) {
+    total_size += meter.latencies_.size();
+    op_count += meter.op_count_;
+    bytes += meter.bytes_;
+  }
+  all_latencies.reserve(total_size);
+
+  for (const auto& meter : meters) {
+    all_latencies.insert(all_latencies.end(), meter.latencies_.begin(),
+                         meter.latencies_.end());
+  }
+  std::sort(all_latencies.begin(), all_latencies.end());
+
+  return FrozenMeter(bytes, op_count, std::move(all_latencies));
 }
 
 }  // namespace ycsbr

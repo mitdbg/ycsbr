@@ -1,6 +1,7 @@
 // Implementation of declarations in yscbr/benchmark.h. Do not include this
 // header!
 #include <functional>
+#include <memory>
 
 #include "flag.h"
 #include "tracking.h"
@@ -20,21 +21,57 @@ class CallOnExit {
 
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
-                                            const Workload& workload) {
-  Flag start_running;
-  Worker<DatabaseInterface> worker(&db, &workload, 0, workload.size(),
-                                   &start_running, std::optional<unsigned>());
+                                            const Workload& workload,
+                                            const BenchmarkOptions& options) {
+  if (options.num_threads == 0) {
+    throw std::invalid_argument("Must use at least 1 thread.");
+  }
 
-  // Busy wait for the worker to start up.
-  while (!worker.IsReady());
+  Flag start_running;
+  std::vector<std::unique_ptr<Worker<DatabaseInterface>>> workers;
+  workers.reserve(options.num_threads);
+
+  // Split up the requests.
+  const size_t min_requests_per_worker = workload.size() / options.num_threads;
+  size_t leftover_requests = workload.size() % options.num_threads;
+  size_t next_offset = 0;
+  for (size_t worker_id = 0; worker_id < options.num_threads; ++worker_id) {
+    size_t num_requests = min_requests_per_worker;
+    if (leftover_requests > 0) {
+      ++num_requests;
+      --leftover_requests;
+    }
+    std::optional<unsigned> core =
+        options.pin_to_core_map.size() == options.num_threads
+            ? std::optional<unsigned>(options.pin_to_core_map[worker_id])
+            : std::optional<unsigned>();
+    workers.emplace_back(std::make_unique<Worker<DatabaseInterface>>(
+        &db, &workload, next_offset, num_requests, &start_running, core));
+    next_offset += num_requests;
+  }
+
+  // Busy wait for the workers to start up.
+  for (const auto& worker : workers) {
+    while (!worker->IsReady()) {
+    }
+  }
 
   // Run the workload.
   const auto start = std::chrono::steady_clock::now();
   start_running.Raise();
-  worker.Wait();
+  for (auto& worker : workers) {
+    worker->Wait();
+  }
   const auto end = std::chrono::steady_clock::now();
 
-  return std::move(worker).GetResults().Finalize(end - start);
+  // Retrieve the results.
+  std::vector<MetricsTracker> results;
+  results.reserve(options.num_threads);
+  for (auto& worker : workers) {
+    results.emplace_back(std::move(*worker).GetResults());
+  }
+
+  return MetricsTracker::FinalizeGroup(end - start, std::move(results));
 }
 
 }  // namespace impl
@@ -45,7 +82,7 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                         const BenchmarkOptions& options) {
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
-  return impl::RunTimedWorkloadImpl(db, workload);
+  return impl::RunTimedWorkloadImpl(db, workload, options);
 }
 
 template <class DatabaseInterface>
@@ -56,7 +93,7 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   db.BulkLoad(load);
-  return impl::RunTimedWorkloadImpl(db, workload);
+  return impl::RunTimedWorkloadImpl(db, workload, options);
 }
 
 template <class DatabaseInterface>
