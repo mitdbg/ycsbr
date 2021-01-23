@@ -10,13 +10,23 @@
 namespace ycsbr {
 namespace impl {
 
+// Used to ensure the database is "deleted" if an exception is thrown.
 class CallOnExit {
  public:
-  explicit CallOnExit(std::function<void()> fn) : fn_(std::move(fn)) {}
-  ~CallOnExit() { fn_(); }
+  explicit CallOnExit(std::function<void()> fn)
+      : fn_(std::move(fn)), cancelled_(false) {}
+
+  void Cancel() { cancelled_ = true; }
+
+  ~CallOnExit() {
+    if (!cancelled_) {
+      fn_();
+    }
+  }
 
  private:
   std::function<void()> fn_;
+  bool cancelled_;
 };
 
 template <class DatabaseInterface>
@@ -62,6 +72,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
   for (auto& worker : workers) {
     worker->Wait();
   }
+  db.DeleteDatabase();
   const auto end = std::chrono::steady_clock::now();
 
   // Retrieve the results.
@@ -82,7 +93,9 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                         const BenchmarkOptions& options) {
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
-  return impl::RunTimedWorkloadImpl(db, workload, options);
+  BenchmarkResult result = impl::RunTimedWorkloadImpl(db, workload, options);
+  guard.Cancel();
+  return result;
 }
 
 template <class DatabaseInterface>
@@ -93,7 +106,9 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   db.BulkLoad(load);
-  return impl::RunTimedWorkloadImpl(db, workload, options);
+  BenchmarkResult result = impl::RunTimedWorkloadImpl(db, workload, options);
+  guard.Cancel();
+  return result;
 }
 
 template <class DatabaseInterface>
@@ -103,7 +118,9 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   const auto start = std::chrono::steady_clock::now();
   db.BulkLoad(load);
+  db.DeleteDatabase();
   const auto end = std::chrono::steady_clock::now();
+  guard.Cancel();
 
   const auto run_time = end - start;
   Meter loading;
