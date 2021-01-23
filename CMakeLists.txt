@@ -9,10 +9,20 @@ option(YR_BUILD_TESTS "Set to build the YCSB Runner tests." OFF)
 # The YCSB Runner library is a header-only library.
 add_library(ycsbrunner INTERFACE)
 target_include_directories(ycsbrunner INTERFACE include)
+set(srcdir include/ycsbr)
+target_sources(ycsbrunner
+  INTERFACE
+    ${srcdir}/impl/benchmark-inl.h
+    ${srcdir}/impl/data-inl.h
+    ${srcdir}/impl/tracking.h
+    ${srcdir}/benchmark.h
+    ${srcdir}/data.h
+    ${srcdir}/meter.h
+    ${srcdir}/ycsbr.h)
 
 if(YR_BUILD_EXTRACTOR)
   add_executable(ycsbextractor extractor.cc)
-  target_link_libraries(ycsbextractor ycsbrunner)
+  target_link_libraries(ycsbextractor PRIVATE ycsbrunner)
 endif()
 
 if(YR_BUILD_TESTS AND NOT YR_BUILD_EXTRACTOR)
