@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <stdexcept>
 
 #include "gtest/gtest.h"
@@ -7,6 +8,11 @@
 namespace {
 
 using namespace ycsbr;
+
+bool SystemIsLittleEndian() {
+  int one = 1;
+  return *reinterpret_cast<const char*>(&one) == 1;
+}
 
 TEST_F(WorkloadLoadA, LoadBulkLoad) {
   const Workload::Options options;
@@ -60,6 +66,37 @@ TEST_F(WorkloadRunE, LoadWorkload) {
     }
   }
   ASSERT_TRUE(found_scan);
+}
+
+TEST_F(WorkloadLoadA, SwapBytesMinMax) {
+  Workload::Options non_swap;
+  non_swap.swap_key_bytes = false;
+  const Workload workload =
+      Workload::LoadFromFile(workload_file, non_swap);
+  ASSERT_EQ(workload.size(), workload_size);
+
+  // Use numeric comparison to extract the min and max key.
+  const auto compare = [](const Request& r1, const Request& r2) {
+    return r1.key < r2.key;
+  };
+  Request::Key min_numeric_key =
+      std::min_element(workload.begin(), workload.end(), compare)->key;
+  Request::Key max_numeric_key =
+      std::max_element(workload.begin(), workload.end(), compare)->key;
+
+  // Reload the workload, this time swapping bytes on little endian machines.
+  Workload::Options swap_if_needed;
+  swap_if_needed.swap_key_bytes = SystemIsLittleEndian();
+  const Workload lexicographic = Workload::LoadFromFile(workload_file, swap_if_needed);
+  const Workload::MinMaxKeys range = lexicographic.GetKeyRange();
+
+  // Make sure the key range is as expected, based on endianness and byte swapping.
+  if (SystemIsLittleEndian()) {
+    min_numeric_key = __builtin_bswap64(min_numeric_key);
+    max_numeric_key = __builtin_bswap64(max_numeric_key);
+  }
+  ASSERT_EQ(min_numeric_key, range.min);
+  ASSERT_EQ(max_numeric_key, range.max);
 }
 
 }  // namespace

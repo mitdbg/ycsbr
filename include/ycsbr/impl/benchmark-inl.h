@@ -48,6 +48,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
           // Force a read of the extracted value. We want to count this time
           // against the read latency too.
           read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
+          return succeeded;
         });
         tracker.RecordRead(res.second, value_out.size());
         break;
@@ -94,6 +95,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
           // time against the read latency too.
           read_xor ^= *reinterpret_cast<const uint32_t*>(
               scan_out.front().second.c_str());
+          return succeeded;
         });
         size_t scanned_bytes = 0;
         for (const auto& entry : scan_out) {

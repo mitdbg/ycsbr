@@ -1,4 +1,5 @@
 // Implementation of declarations in ycsbr/data.h. Do not include this header!
+#include <cstring>
 #include <fstream>
 #include <random>
 #include <stdexcept>
@@ -38,7 +39,10 @@ inline Workload Workload::LoadFromFile(const std::string& file,
         encoded.op == Request::Operation::kUpdate) {
       num_writes += 1;
     }
-    workload_raw.emplace_back(encoded.op, encoded.key, scan_amount, nullptr, 0);
+    workload_raw.emplace_back(
+        encoded.op,
+        options.swap_key_bytes ? __builtin_bswap64(encoded.key) : encoded.key,
+        scan_amount, nullptr, 0);
   }
 
   // Create the values and initialize them.
@@ -69,6 +73,20 @@ inline Workload Workload::LoadFromFile(const std::string& file,
   }
 
   return Workload(std::move(workload), std::move(values));
+}
+
+inline Workload::MinMaxKeys Workload::GetKeyRange() const {
+  Request::Key min = begin()->key;
+  Request::Key max = begin()->key;
+  for (const auto& req : *this) {
+    if (memcmp(&req.key, &min, sizeof(Request::Key)) < 0) {
+      min = req.key;
+    }
+    if (memcmp(&req.key, &max, sizeof(Request::Key)) > 0) {
+      max = req.key;
+    }
+  }
+  return MinMaxKeys(min, max);
 }
 
 inline BulkLoadWorkload BulkLoadWorkload::LoadFromFile(

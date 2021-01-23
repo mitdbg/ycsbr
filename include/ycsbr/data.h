@@ -56,12 +56,16 @@ struct Request {
 class Workload {
  public:
   struct Options {
+    // The workload's keys are encoded as 64-bit integers. On little endian
+    // machines, swapping the key's bytes ensures that they retain their integer
+    // ordering when compared lexicographically.
+    bool swap_key_bytes = true;
+
     // The size of the values for insert and update requests, in bytes.
     size_t value_size = 1024;
     int rng_seed = 42;
   };
-  static Workload LoadFromFile(const std::string& file,
-                                      const Options& options);
+  static Workload LoadFromFile(const std::string& file, const Options& options);
 
   using iterator = std::vector<Request>::iterator;
   using const_iterator = std::vector<Request>::const_iterator;
@@ -71,6 +75,15 @@ class Workload {
   const_iterator begin() const { return requests_.begin(); }
   const_iterator end() const { return requests_.end(); }
   size_t size() const { return requests_.size(); }
+
+  struct MinMaxKeys {
+    MinMaxKeys() : MinMaxKeys(0, 0) {}
+    MinMaxKeys(Request::Key min, Request::Key max) : min(min), max(max) {}
+    const Request::Key min, max;
+  };
+  // Get the minimum and maximum key in this `Workload`. Keys are compared
+  // lexicographically.
+  MinMaxKeys GetKeyRange() const;
 
  protected:
   Workload(std::vector<Request> requests, std::unique_ptr<char[]> values)
@@ -85,8 +98,9 @@ class Workload {
 class BulkLoadWorkload : public Workload {
  public:
   static BulkLoadWorkload LoadFromFile(const std::string& file,
-                                              const Workload::Options& options);
+                                       const Workload::Options& options);
   size_t DatasetSizeBytes() const;
+
  private:
   BulkLoadWorkload(Workload workload) : Workload(std::move(workload)) {}
 };
