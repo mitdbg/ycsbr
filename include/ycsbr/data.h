@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -29,7 +30,6 @@ struct Request {
   } __attribute__((packed));
 
   Request() : Request(Operation::kRead, 0, 0, nullptr, 0) {}
-
   Request(Operation op, Key key, uint32_t scan_amount, char* value,
           size_t value_size)
       : op(op),
@@ -38,19 +38,23 @@ struct Request {
         value(value),
         value_size(value_size) {}
 
-  const Operation op;
-  const Key key;
+  bool operator<(const Request& other) const {
+    return memcmp(&key, &other.key, sizeof(key)) < 0;
+  }
+
+  Operation op;
+  Key key;
 
   // Number of keys to scan; non-zero only if `op` is `Operation::kScan`.
-  const uint32_t scan_amount;
+  uint32_t scan_amount;
 
   // Value to write; non-null only if `op` is `Operation::kInsert` or
   // `Operation::kUpdate`.
-  const char* value;
+  char* value;
 
   // Size of the value to write in bytes; non-zero only if `op` is
   // `Operation::kInsert` or `Operation::kUpdate`.
-  const size_t value_size;
+  size_t value_size;
 };
 
 class Workload {
@@ -61,20 +65,23 @@ class Workload {
     // ordering when compared lexicographically.
     bool swap_key_bytes = true;
 
+    // If true, the requests will be sorted in ascending order lexicographically
+    // by key.
+    bool sort_requests = false;
+
     // The size of the values for insert and update requests, in bytes.
     size_t value_size = 1024;
     int rng_seed = 42;
   };
   static Workload LoadFromFile(const std::string& file, const Options& options);
 
-  using iterator = std::vector<Request>::iterator;
   using const_iterator = std::vector<Request>::const_iterator;
-
-  iterator begin() { return requests_.begin(); }
-  iterator end() { return requests_.end(); }
   const_iterator begin() const { return requests_.begin(); }
   const_iterator end() const { return requests_.end(); }
   size_t size() const { return requests_.size(); }
+
+  const Request& at(size_t index) const { return requests_.at(index); }
+  const Request& operator[](size_t index) const { return requests_[index]; }
 
   struct MinMaxKeys {
     MinMaxKeys() : MinMaxKeys(0, 0) {}

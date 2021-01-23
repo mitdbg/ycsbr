@@ -1,5 +1,5 @@
 // Implementation of declarations in ycsbr/data.h. Do not include this header!
-#include <cstring>
+#include <algorithm>
 #include <fstream>
 #include <random>
 #include <stdexcept>
@@ -43,6 +43,10 @@ inline Workload Workload::LoadFromFile(const std::string& file,
         encoded.op,
         options.swap_key_bytes ? __builtin_bswap64(encoded.key) : encoded.key,
         scan_amount, nullptr, 0);
+  }
+
+  if (options.sort_requests) {
+    std::sort(workload_raw.begin(), workload_raw.end());
   }
 
   // Create the values and initialize them.
