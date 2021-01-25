@@ -14,7 +14,9 @@ target_sources(ycsbrunner
   INTERFACE
     ${srcdir}/impl/benchmark-inl.h
     ${srcdir}/impl/data-inl.h
+    ${srcdir}/impl/flag.h
     ${srcdir}/impl/tracking.h
+    ${srcdir}/impl/worker.h
     ${srcdir}/benchmark.h
     ${srcdir}/data.h
     ${srcdir}/meter.h
