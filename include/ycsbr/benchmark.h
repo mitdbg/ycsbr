@@ -71,7 +71,8 @@ class BenchmarkResult {
   const FrozenMeter& Writes() const { return writes_; }
   const FrozenMeter& Scans() const { return scans_; }
 
-  void PrintAsCSV(std::ostream& out) const;
+  static void PrintCSVHeader(std::ostream& out);
+  void PrintAsCSV(std::ostream& out, bool print_header = true) const;
 
  private:
   friend std::ostream& operator<<(std::ostream& out,

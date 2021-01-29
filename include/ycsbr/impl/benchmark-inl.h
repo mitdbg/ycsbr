@@ -186,11 +186,18 @@ inline std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
   return out;
 }
 
-inline void BenchmarkResult::PrintAsCSV(std::ostream& out) const {
-  using nanoseconds = std::chrono::nanoseconds;
+inline void BenchmarkResult::PrintCSVHeader(std::ostream& out) {
   out << "num_reads,num_writes,num_scanned_keys,reads_ns_p99,reads_ns_p50,"
          "writes_ns_p99,writes_ns_p50,mops_per_s,read_mib_per_s,write_mib_per_s"
       << std::endl;
+}
+
+inline void BenchmarkResult::PrintAsCSV(std::ostream& out,
+                                        bool print_header) const {
+  using nanoseconds = std::chrono::nanoseconds;
+  if (print_header) {
+    PrintCSVHeader(out);
+  }
   out << Reads().NumOperations() << ",";
   out << Writes().NumOperations() << ",";
   out << Scans().NumOperations() << ",";
