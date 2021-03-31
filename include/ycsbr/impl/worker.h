@@ -114,6 +114,9 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
   std::string value_out;
   std::vector<std::pair<Request::Key, std::string>> scan_out;
 
+  // Run any needed per-worker initialization.
+  db_->InitializeWorker();
+
   // Now ready to proceed; wait until we're told to start.
   ready_.store(true, std::memory_order_release);
   can_start_->Wait();

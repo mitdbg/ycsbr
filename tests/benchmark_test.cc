@@ -1,4 +1,5 @@
 #include <atomic>
+#include <optional>
 
 #include "gtest/gtest.h"
 #include "workloads/fixtures.h"
@@ -10,6 +11,7 @@ using namespace ycsbr;
 
 class TestDatabaseInterface {
  public:
+  void InitializeWorker() {}
   void InitializeDatabase() { ++initialize_calls; }
   void DeleteDatabase() { ++delete_calls; }
 
@@ -72,15 +74,15 @@ TEST_F(WorkloadLoadA, BenchBulkLoad) {
 
 TEST_F(WorkloadLoadA, BenchLoadRunA) {
   const Workload::Options options;
-  const BulkLoadWorkload load =
+  const std::optional<const BulkLoadWorkload> load =
       BulkLoadWorkload::LoadFromFile(workload_file, options);
   const Workload workload =
       BulkLoadWorkload::LoadFromFile(workload_file, options);
-  ASSERT_EQ(load.size(), workload_size);
+  ASSERT_EQ(load->size(), workload_size);
   ASSERT_EQ(workload.size(), workload_size);
 
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, load, workload);
+  auto res = RunTimedWorkload(db, workload, load);
   ASSERT_EQ(db.initialize_calls, 1);
   ASSERT_EQ(db.delete_calls, 1);
   ASSERT_EQ(db.bulk_load_calls, 1);
@@ -129,7 +131,8 @@ TEST_F(WorkloadRunA, MultithreadedRun) {
   BenchmarkOptions boptions;
   boptions.num_threads = 5;
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, load, boptions);
+  auto res = RunTimedWorkload(db, load, std::optional<const BulkLoadWorkload>(),
+                              boptions);
   ASSERT_EQ(db.initialize_calls, 1);
   ASSERT_EQ(db.delete_calls, 1);
   ASSERT_EQ(db.bulk_load_calls, 0);
@@ -149,9 +152,11 @@ TEST_F(WorkloadRunA, NoThreads) {
   BenchmarkOptions boptions;
   boptions.num_threads = 0;
   TestDatabaseInterface db;
-  ASSERT_THROW(RunTimedWorkload(db, load, boptions), std::invalid_argument);
-  ASSERT_EQ(db.initialize_calls, 1);
-  ASSERT_EQ(db.delete_calls, 1);
+  ASSERT_THROW(RunTimedWorkload(
+                   db, load, std::optional<const BulkLoadWorkload>(), boptions),
+               std::invalid_argument);
+  ASSERT_EQ(db.initialize_calls, 0);
+  ASSERT_EQ(db.delete_calls, 0);
   ASSERT_EQ(db.bulk_load_calls, 0);
   ASSERT_EQ(db.insert_calls, 0);
   ASSERT_EQ(db.update_calls, 0);
@@ -161,7 +166,7 @@ TEST_F(WorkloadRunA, NoThreads) {
 
 TEST_F(WorkloadLoadA, NoThreads) {
   const Workload::Options options;
-  const BulkLoadWorkload load =
+  const std::optional<const BulkLoadWorkload> load =
       BulkLoadWorkload::LoadFromFile(workload_file, options);
   const Workload workload = Workload::LoadFromFile(workload_file, options);
 
@@ -169,16 +174,19 @@ TEST_F(WorkloadLoadA, NoThreads) {
   boptions.num_threads = 0;
   TestDatabaseInterface db;
 
-  ASSERT_THROW(RunTimedWorkload(db, workload, boptions), std::invalid_argument);
-  ASSERT_EQ(db.initialize_calls, 1);
-  ASSERT_EQ(db.delete_calls, 1);
+  ASSERT_THROW(
+      RunTimedWorkload(db, workload, std::optional<const BulkLoadWorkload>(),
+                       boptions),
+      std::invalid_argument);
+  ASSERT_EQ(db.initialize_calls, 0);
+  ASSERT_EQ(db.delete_calls, 0);
   ASSERT_EQ(db.bulk_load_calls, 0);
 
-  ASSERT_THROW(RunTimedWorkload(db, load, workload, boptions),
+  ASSERT_THROW(RunTimedWorkload(db, workload, load, boptions),
                std::invalid_argument);
-  ASSERT_EQ(db.initialize_calls, 2);
-  ASSERT_EQ(db.delete_calls, 2);
-  ASSERT_EQ(db.bulk_load_calls, 1);
+  ASSERT_EQ(db.initialize_calls, 0);
+  ASSERT_EQ(db.delete_calls, 0);
+  ASSERT_EQ(db.bulk_load_calls, 0);
   ASSERT_EQ(db.insert_calls, 0);
   ASSERT_EQ(db.update_calls, 0);
   ASSERT_EQ(db.read_calls, 0);

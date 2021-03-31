@@ -32,6 +32,7 @@ class CallOnExit {
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
                                             const Workload& workload,
+                                            const std::optional<const BulkLoadWorkload>& load,
                                             const BenchmarkOptions& options) {
   if (options.num_threads == 0) {
     throw std::invalid_argument("Must use at least 1 thread.");
@@ -66,6 +67,21 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
     }
   }
 
+  if (load.has_value()) {
+    // The bulk load will run on this thread, so we need to call
+    // `InitializeWorker()` here.
+    db.InitializeWorker();
+  }
+
+  // Initialize the database before starting the workload.
+  db.InitializeDatabase();
+  impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
+
+  // Run the bulk load.
+  if (load.has_value()) {
+    db.BulkLoad(*load);
+  }
+
   // Run the workload.
   const auto start = std::chrono::steady_clock::now();
   start_running.Raise();
@@ -73,6 +89,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
     worker->Wait();
   }
   db.DeleteDatabase();
+  guard.Cancel();
   const auto end = std::chrono::steady_clock::now();
 
   // Retrieve the results.
@@ -90,37 +107,22 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                         const Workload& workload,
+                                        const std::optional<const BulkLoadWorkload>& load,
                                         const BenchmarkOptions& options) {
-  db.InitializeDatabase();
-  impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
-  BenchmarkResult result = impl::RunTimedWorkloadImpl(db, workload, options);
-  guard.Cancel();
-  return result;
-}
-
-template <class DatabaseInterface>
-inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                        const BulkLoadWorkload& load,
-                                        const Workload& workload,
-                                        const BenchmarkOptions& options) {
-  db.InitializeDatabase();
-  impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
-  db.BulkLoad(load);
-  BenchmarkResult result = impl::RunTimedWorkloadImpl(db, workload, options);
-  guard.Cancel();
-  return result;
+  return impl::RunTimedWorkloadImpl(db, workload, load, options);
 }
 
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                         const BulkLoadWorkload& load) {
+  db.InitializeWorker();
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   const auto start = std::chrono::steady_clock::now();
   db.BulkLoad(load);
   db.DeleteDatabase();
-  const auto end = std::chrono::steady_clock::now();
   guard.Cancel();
+  const auto end = std::chrono::steady_clock::now();
 
   const auto run_time = end - start;
   Meter loading;

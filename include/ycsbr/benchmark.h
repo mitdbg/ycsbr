@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -26,16 +27,6 @@ struct BenchmarkOptions {
   std::vector<unsigned> pin_to_core_map;
 };
 
-// Runs the specified workload.
-//
-// NOTE: This assumes that the database already has an appropriate dataset
-// loaded. If the database does not, use the overload with `BulkLoadWorkload`
-// instead.
-template <class DatabaseInterface>
-BenchmarkResult RunTimedWorkload(
-    DatabaseInterface& db, const Workload& workload,
-    const BenchmarkOptions& options = BenchmarkOptions());
-
 // Loads the specified records into the database and then runs the specified
 // (timed) workload.
 //
@@ -44,8 +35,9 @@ BenchmarkResult RunTimedWorkload(
 // always runs on a single thread.
 template <class DatabaseInterface>
 BenchmarkResult RunTimedWorkload(
-    DatabaseInterface& db, const BulkLoadWorkload& load,
+    DatabaseInterface& db, 
     const Workload& workload,
+    const std::optional<const BulkLoadWorkload>& load = std::optional<const BulkLoadWorkload>(),
     const BenchmarkOptions& options = BenchmarkOptions());
 
 // Measures the time it takes to load the specified records using bulk load.
@@ -92,6 +84,9 @@ std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res);
 // avoid vtable overheads.
 class ExampleDatabaseInterface final {
  public:
+  // Called once by each worker thread before the database is initialized.
+  virtual void InitializeWorker() = 0;
+
   // Called once before the benchmark.
   // Put any needed initialization code in here.
   virtual void InitializeDatabase() = 0;
