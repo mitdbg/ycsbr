@@ -32,7 +32,7 @@ class CallOnExit {
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
                                             const Workload& workload,
-                                            const std::optional<const BulkLoadWorkload>& load,
+                                            const BulkLoadWorkload* load,
                                             const BenchmarkOptions& options) {
   if (options.num_threads == 0) {
     throw std::invalid_argument("Must use at least 1 thread.");
@@ -67,7 +67,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
     }
   }
 
-  if (load.has_value()) {
+  if (load != nullptr) {
     // The bulk load will run on this thread, so we need to call
     // `InitializeWorker()` here.
     db.InitializeWorker();
@@ -78,7 +78,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
 
   // Run the bulk load.
-  if (load.has_value()) {
+  if (load != nullptr) {
     db.BulkLoad(*load);
   }
 
@@ -107,7 +107,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                         const Workload& workload,
-                                        const std::optional<const BulkLoadWorkload>& load,
+                                        const BulkLoadWorkload* load,
                                         const BenchmarkOptions& options) {
   return impl::RunTimedWorkloadImpl(db, workload, load, options);
 }

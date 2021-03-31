@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,7 +36,7 @@ template <class DatabaseInterface>
 BenchmarkResult RunTimedWorkload(
     DatabaseInterface& db, 
     const Workload& workload,
-    const std::optional<const BulkLoadWorkload>& load = std::optional<const BulkLoadWorkload>(),
+    const BulkLoadWorkload* load = nullptr,
     const BenchmarkOptions& options = BenchmarkOptions());
 
 // Measures the time it takes to load the specified records using bulk load.
