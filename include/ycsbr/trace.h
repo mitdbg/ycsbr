@@ -38,9 +38,7 @@ struct Request {
         value(value),
         value_size(value_size) {}
 
-  bool operator<(const Request& other) const {
-    return memcmp(&key, &other.key, sizeof(key)) < 0;
-  }
+  bool operator<(const Request& other) const { return key < other.key; }
 
   Operation op;
   Key key;
@@ -60,13 +58,20 @@ struct Request {
 class Trace {
  public:
   struct Options {
-    // The workload's keys are encoded as 64-bit integers. On little endian
+    // The trace's deserialization semantics (related to key sort order) have
+    // changed since v1. Set this to true to use the v1 semantics instead.
+    bool use_v1_semantics = false;
+
+    // DEPRECATED: This option is only meaningful if `use_v1_semantics` is set
+    // to true. Otherwise it is ignored.
+    //
+    // The trace's keys are encoded as 64-bit integers. On little endian
     // machines, swapping the key's bytes ensures that they retain their integer
     // ordering when compared lexicographically.
     bool swap_key_bytes = true;
 
-    // If true, the requests will be sorted in ascending order lexicographically
-    // by key.
+    // If true, the requests will be sorted in ascending order by key.
+    // If `use_v1_semantics` is set to true, the sort will be lexicographic.
     bool sort_requests = false;
 
     // The size of the values for insert and update requests, in bytes.
@@ -93,13 +98,17 @@ class Trace {
   MinMaxKeys GetKeyRange() const;
 
  protected:
-  Trace(std::vector<Request> requests, std::unique_ptr<char[]> values)
-      : requests_(std::move(requests)), values_(std::move(values)) {}
+  Trace(std::vector<Request> requests, std::unique_ptr<char[]> values,
+        bool use_v1_semantics)
+      : requests_(std::move(requests)),
+        values_(std::move(values)),
+        use_v1_semantics_(use_v1_semantics) {}
 
  private:
   std::vector<Request> requests_;
   // All values stored contiguously.
   std::unique_ptr<char[]> values_;
+  bool use_v1_semantics_;
 };
 
 class BulkLoadTrace : public Trace {

@@ -66,8 +66,9 @@ TEST_F(TraceReplayE, LoadWorkload) {
   ASSERT_TRUE(found_scan);
 }
 
-TEST_F(TraceLoadA, SwapBytesMinMax) {
+TEST_F(TraceLoadA, SwapBytesMinMaxV1) {
   Trace::Options non_swap;
+  non_swap.use_v1_semantics = true;
   non_swap.swap_key_bytes = false;
   const Trace trace = Trace::LoadFromFile(trace_file, non_swap);
   ASSERT_EQ(trace.size(), trace_size);
@@ -83,6 +84,7 @@ TEST_F(TraceLoadA, SwapBytesMinMax) {
 
   // Reload the workload, this time swapping bytes on little endian machines.
   Trace::Options swap_if_needed;
+  swap_if_needed.use_v1_semantics = true;
   swap_if_needed.swap_key_bytes = SystemIsLittleEndian();
   const Trace lexicographic = Trace::LoadFromFile(trace_file, swap_if_needed);
   const Trace::MinMaxKeys range = lexicographic.GetKeyRange();
@@ -97,8 +99,9 @@ TEST_F(TraceLoadA, SwapBytesMinMax) {
   ASSERT_EQ(max_numeric_key, range.max);
 }
 
-TEST_F(TraceReplayA, SortRequests) {
+TEST_F(TraceReplayA, SortRequestsV1) {
   Trace::Options non_swap;
+  non_swap.use_v1_semantics = true;
   non_swap.swap_key_bytes = false;
   const Trace numeric = Trace::LoadFromFile(trace_file, non_swap);
   ASSERT_EQ(numeric.size(), trace_size);
@@ -114,6 +117,7 @@ TEST_F(TraceReplayA, SortRequests) {
 
   // Load and sort lexicographically (swapping to big endian if needed).
   Trace::Options swap_if_needed;
+  swap_if_needed.use_v1_semantics = true;
   swap_if_needed.swap_key_bytes = SystemIsLittleEndian();
   swap_if_needed.sort_requests = true;
   const Trace lexicographic = Trace::LoadFromFile(trace_file, swap_if_needed);
@@ -130,6 +134,56 @@ TEST_F(TraceReplayA, SortRequests) {
   // Verify sort order.
   for (size_t i = 0; i < numeric_keys.size(); ++i) {
     ASSERT_EQ(lexicographic[i].key, numeric_keys[i]);
+  }
+}
+
+TEST_F(TraceReplayA, IgnoreSwap) {
+  Trace::Options with_swap;
+  with_swap.use_v1_semantics = false;
+  with_swap.swap_key_bytes =
+      true;  // Should be a no-op because of non-v1 semantics.
+  const Trace t_with_swap = Trace::LoadFromFile(trace_file, with_swap);
+  ASSERT_EQ(t_with_swap.size(), trace_size);
+
+  // Load and sort lexicographically (swapping to big endian if needed).
+  Trace::Options no_swap;
+  no_swap.use_v1_semantics = false;
+  no_swap.swap_key_bytes = false;
+  const Trace t_no_swap = Trace::LoadFromFile(trace_file, no_swap);
+
+  ASSERT_EQ(t_no_swap.size(), t_with_swap.size());
+
+  // Verify identical.
+  for (size_t i = 0; i < t_with_swap.size(); ++i) {
+    ASSERT_EQ(t_with_swap[i].key, t_no_swap[i].key);
+  }
+}
+
+TEST_F(TraceReplayA, SortRequests) {
+  Trace::Options no_sort;
+  no_sort.sort_requests = false;
+  const Trace t_rand = Trace::LoadFromFile(trace_file, no_sort);
+  ASSERT_EQ(t_rand.size(), trace_size);
+
+  std::vector<Request::Key> numeric_keys;
+  numeric_keys.reserve(t_rand.size());
+  for (const auto& req : t_rand) {
+    numeric_keys.push_back(req.key);
+  }
+
+  // Sort it ourselves.
+  std::sort(numeric_keys.begin(), numeric_keys.end());
+
+  // Load and sort.
+  Trace::Options sort;
+  sort.sort_requests = true;
+  const Trace t_sorted = Trace::LoadFromFile(trace_file, sort);
+
+  ASSERT_EQ(t_rand.size(), t_sorted.size());
+
+  // Verify sort order.
+  for (size_t i = 0; i < numeric_keys.size(); ++i) {
+    ASSERT_EQ(t_sorted[i].key, numeric_keys[i]);
   }
 }
 

@@ -1,5 +1,6 @@
 // Implementation of declarations in ycsbr/data.h. Do not include this header!
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <random>
 #include <stdexcept>
@@ -23,7 +24,7 @@ inline Trace Trace::LoadFromFile(const std::string& file,
   input.exceptions(std::ifstream::badbit);
 
   size_t num_writes = 0;
-  std::vector<Request> workload_raw;
+  std::vector<Request> trace_raw;
   Request::Encoded encoded;
   while (true) {
     uint32_t scan_amount = 0;
@@ -39,14 +40,22 @@ inline Trace Trace::LoadFromFile(const std::string& file,
         encoded.op == Request::Operation::kUpdate) {
       num_writes += 1;
     }
-    workload_raw.emplace_back(
-        encoded.op,
-        options.swap_key_bytes ? __builtin_bswap64(encoded.key) : encoded.key,
-        scan_amount, nullptr, 0);
+    trace_raw.emplace_back(encoded.op,
+                           options.use_v1_semantics && options.swap_key_bytes
+                               ? __builtin_bswap64(encoded.key)
+                               : encoded.key,
+                           scan_amount, nullptr, 0);
   }
 
   if (options.sort_requests) {
-    std::sort(workload_raw.begin(), workload_raw.end());
+    if (options.use_v1_semantics) {
+      std::sort(trace_raw.begin(), trace_raw.end(),
+                [](const Request& r1, const Request& r2) {
+                  return memcmp(&r1.key, &r2.key, sizeof(r1.key)) < 0;
+                });
+    } else {
+      std::sort(trace_raw.begin(), trace_raw.end());
+    }
   }
 
   // Create the values and initialize them.
@@ -59,35 +68,45 @@ inline Trace Trace::LoadFromFile(const std::string& file,
     *start = rng();
   }
 
-  std::vector<Request> workload;
-  workload.reserve(workload_raw.size());
+  std::vector<Request> trace;
+  trace.reserve(trace_raw.size());
   size_t value_index = 0;
-  for (size_t i = 0; i < workload_raw.size(); ++i) {
-    const auto& raw = workload_raw[i];
+  for (size_t i = 0; i < trace_raw.size(); ++i) {
+    const auto& raw = trace_raw[i];
     if (raw.op == Request::Operation::kInsert ||
         raw.op == Request::Operation::kUpdate) {
-      workload.emplace_back(
+      trace.emplace_back(
           raw.op, raw.key, raw.scan_amount,
           &values[(value_index % kNumUniqueValues) * options.value_size],
           options.value_size);
       value_index += 1;
     } else {
-      workload.emplace_back(raw);
+      trace.emplace_back(raw);
     }
   }
 
-  return Trace(std::move(workload), std::move(values));
+  return Trace(std::move(trace), std::move(values), options.use_v1_semantics);
 }
 
 inline Trace::MinMaxKeys Trace::GetKeyRange() const {
   Request::Key min = begin()->key;
   Request::Key max = begin()->key;
   for (const auto& req : *this) {
-    if (memcmp(&req.key, &min, sizeof(Request::Key)) < 0) {
-      min = req.key;
-    }
-    if (memcmp(&req.key, &max, sizeof(Request::Key)) > 0) {
-      max = req.key;
+    if (use_v1_semantics_) {
+      if (memcmp(&req.key, &min, sizeof(Request::Key)) < 0) {
+        min = req.key;
+      }
+      if (memcmp(&req.key, &max, sizeof(Request::Key)) > 0) {
+        max = req.key;
+      }
+
+    } else {
+      if (req.key < min) {
+        min = req.key;
+      }
+      if (req.key > max) {
+        max = req.key;
+      }
     }
   }
   return MinMaxKeys(min, max);
