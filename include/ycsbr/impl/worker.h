@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-#include "../data.h"
+#include "../trace.h"
 #include "flag.h"
 #include "tracking.h"
 

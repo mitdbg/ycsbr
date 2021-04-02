@@ -114,4 +114,4 @@ class BulkLoadWorkload : public Workload {
 
 }  // namespace ycsbr
 
-#include "impl/data-inl.h"
+#include "impl/trace-inl.h"

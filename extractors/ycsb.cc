@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "ycsbr/data.h"
+#include "ycsbr/trace.h"
 
 namespace fs = std::filesystem;
 

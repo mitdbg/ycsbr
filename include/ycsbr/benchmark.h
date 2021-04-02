@@ -6,8 +6,8 @@
 #include <utility>
 #include <vector>
 
-#include "data.h"
 #include "meter.h"
+#include "trace.h"
 
 namespace ycsbr {
 

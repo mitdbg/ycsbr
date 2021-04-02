@@ -24,7 +24,7 @@ target_sources(ycsbrunner
     ${srcdir}/ycsbr.h)
 
 if(YR_BUILD_EXTRACTOR)
-  add_executable(ycsbextractor extractor.cc)
+  add_executable(ycsbextractor extractors/ycsb.cc)
   target_link_libraries(ycsbextractor PRIVATE ycsbrunner)
 endif()
 
