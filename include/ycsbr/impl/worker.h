@@ -39,6 +39,7 @@ class Worker {
 
   std::thread thread_;
   std::atomic<bool> ready_;
+  Flag done_;
   DatabaseInterface* db_;
   const Workload* workload_;
   size_t offset_, num_requests_;
@@ -56,6 +57,7 @@ inline Worker<DatabaseInterface>::Worker(DatabaseInterface* db,
                                          const Flag* can_start,
                                          std::optional<unsigned> pin_to_core)
     : ready_(false),
+      done_(),
       db_(db),
       workload_(workload),
       offset_(offset),
@@ -68,6 +70,9 @@ inline Worker<DatabaseInterface>::Worker(DatabaseInterface* db,
 template <class DatabaseInterface>
 inline Worker<DatabaseInterface>::~Worker() {
   Wait();
+  if (thread_.joinable()) {
+    thread_.join();
+  }
 }
 
 template <class DatabaseInterface>
@@ -77,9 +82,7 @@ inline bool Worker<DatabaseInterface>::IsReady() const {
 
 template <class DatabaseInterface>
 inline void Worker<DatabaseInterface>::Wait() {
-  if (thread_.joinable()) {
-    thread_.join();
-  }
+  done_.Wait();
 }
 
 template <class DatabaseInterface>
@@ -115,7 +118,7 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
   std::vector<std::pair<Request::Key, std::string>> scan_out;
 
   // Run any needed per-worker initialization.
-  db_->InitializeWorker();
+  db_->InitializeWorker(std::this_thread::get_id());
 
   // Now ready to proceed; wait until we're told to start.
   ready_.store(true, std::memory_order_release);
@@ -202,6 +205,12 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
 
   // Used to prevent optimizing away reads.
   tracker_.SetReadXOR(read_xor);
+
+  // Notify others that we are done.
+  done_.Raise();
+
+  // Run any needed shutdown code.
+  db_->ShutdownWorker(std::this_thread::get_id());
 }
 
 }  // namespace impl

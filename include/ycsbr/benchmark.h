@@ -26,8 +26,8 @@ struct BenchmarkOptions {
   std::vector<unsigned> pin_to_core_map;
 };
 
-// Loads the specified records into the database and then runs the specified
-// (timed) workload.
+// Runs the specified (timed) workload. If `load` is provided, this function
+// will run the bulk load workload before starting the timed workload.
 //
 // NOTE: Only running the workload is timed. Loading the records is performed by
 // calling `BulkLoad()` on the specified `DatabaseInterface`. The bulk load
@@ -74,46 +74,6 @@ class BenchmarkResult {
 };
 
 std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res);
-
-// This is an example `DatabaseInterface` - you need to implement all of these
-// methods to be able to use `RunTimedWorkload()` above.
-//
-// **Do not subclass this class.** Just implement the same methods with the same
-// signatures in a concrete class. We use templates in RunTimedWorkload() to
-// avoid vtable overheads.
-class ExampleDatabaseInterface final {
- public:
-  // Called once by each worker thread before the database is initialized.
-  virtual void InitializeWorker() = 0;
-
-  // Called once before the benchmark.
-  // Put any needed initialization code in here.
-  virtual void InitializeDatabase() = 0;
-
-  // Called exactly once if `InitializeDatabase()` has been called.
-  // Put any needed clean up code in here.
-  virtual void DeleteDatabase() = 0;
-
-  // Load the records into the database.
-  virtual void BulkLoad(const BulkLoadWorkload& load) = 0;
-
-  // Update the value at the specified key. Return true if the update succeeded.
-  virtual bool Update(Request::Key key, const char* value,
-                      size_t value_size) = 0;
-
-  // Insert the specified key value pair. Return true if the insert succeeded.
-  virtual bool Insert(Request::Key key, const char* value,
-                      size_t value_size) = 0;
-
-  // Read the value at the specified key. Return true if the read succeeded.
-  virtual bool Read(Request::Key key, std::string* value_out) = 0;
-
-  // Scan the key range starting from `key` for `amount` records. Return true if
-  // the scan succeeded.
-  virtual bool Scan(
-      Request::Key key, size_t amount,
-      std::vector<std::pair<Request::Key, std::string>>* scan_out) = 0;
-};
 
 }  // namespace ycsbr
 

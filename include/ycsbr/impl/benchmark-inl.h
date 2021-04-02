@@ -2,6 +2,7 @@
 // header!
 #include <functional>
 #include <memory>
+#include <thread>
 
 #include "flag.h"
 #include "tracking.h"
@@ -70,7 +71,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
   if (load != nullptr) {
     // The bulk load will run on this thread, so we need to call
     // `InitializeWorker()` here.
-    db.InitializeWorker();
+    db.InitializeWorker(std::this_thread::get_id());
   }
 
   // Initialize the database before starting the workload.
@@ -91,6 +92,10 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
   db.DeleteDatabase();
   guard.Cancel();
   const auto end = std::chrono::steady_clock::now();
+
+  if (load != nullptr) {
+    db.ShutdownWorker(std::this_thread::get_id());
+  }
 
   // Retrieve the results.
   std::vector<MetricsTracker> results;
@@ -115,7 +120,7 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
                                         const BulkLoadWorkload& load) {
-  db.InitializeWorker();
+  db.InitializeWorker(std::this_thread::get_id());
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
   const auto start = std::chrono::steady_clock::now();
@@ -123,6 +128,7 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   db.DeleteDatabase();
   guard.Cancel();
   const auto end = std::chrono::steady_clock::now();
+  db.ShutdownWorker(std::this_thread::get_id());
 
   const auto run_time = end - start;
   Meter loading;

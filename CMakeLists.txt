@@ -19,6 +19,7 @@ target_sources(ycsbrunner
     ${srcdir}/impl/worker.h
     ${srcdir}/benchmark.h
     ${srcdir}/data.h
+    ${srcdir}/db.h
     ${srcdir}/meter.h
     ${srcdir}/ycsbr.h)
 
