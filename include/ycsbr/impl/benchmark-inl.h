@@ -58,7 +58,9 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
             ? std::optional<unsigned>(options.pin_to_core_map[worker_id])
             : std::optional<unsigned>();
     workers.emplace_back(std::make_unique<Worker<DatabaseInterface>>(
-        &db, &workload, next_offset, num_requests, &start_running, core));
+        &db, &workload, next_offset, num_requests, &start_running, core,
+        options.latency_sample_period, options.expect_request_success,
+        options.expect_scan_amount_found));
     next_offset += num_requests;
   }
 
@@ -134,20 +136,26 @@ inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
   Meter loading;
   loading.RecordMultiple(run_time, load.DatasetSizeBytes(), load.size());
   return BenchmarkResult(run_time, 0, FrozenMeter(),
-                         std::move(loading).Freeze(), FrozenMeter());
+                         std::move(loading).Freeze(), FrozenMeter(), 0, 0, 0);
 }
 
 inline BenchmarkResult::BenchmarkResult(std::chrono::nanoseconds total_run_time)
     : BenchmarkResult(total_run_time, 0, FrozenMeter(), FrozenMeter(),
-                      FrozenMeter()) {}
+                      FrozenMeter(), 0, 0, 0) {}
 
 inline BenchmarkResult::BenchmarkResult(std::chrono::nanoseconds total_run_time,
                                         uint32_t read_xor, FrozenMeter reads,
-                                        FrozenMeter writes, FrozenMeter scans)
+                                        FrozenMeter writes, FrozenMeter scans,
+                                        size_t failed_reads,
+                                        size_t failed_writes,
+                                        size_t failed_scans)
     : run_time_(total_run_time),
       reads_(reads),
       writes_(writes),
       scans_(scans),
+      failed_reads_(failed_reads),
+      failed_writes_(failed_writes),
+      failed_scans_(failed_scans),
       read_xor_(read_xor) {}
 
 template <typename Units>

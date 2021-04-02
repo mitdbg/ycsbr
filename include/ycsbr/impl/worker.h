@@ -24,7 +24,8 @@ class Worker {
  public:
   Worker(DatabaseInterface* db, const Workload* workload, size_t offset,
          size_t num_requests, const Flag* can_start,
-         std::optional<unsigned> pin_to_core);
+         std::optional<unsigned> pin_to_core, size_t latency_sample_period,
+         bool expect_request_success, bool expect_scan_amount_found);
   ~Worker();
 
   Worker(const Worker&) = delete;
@@ -46,16 +47,22 @@ class Worker {
   const Flag* can_start_;
   std::optional<unsigned> pin_to_core_;
   MetricsTracker tracker_;
+
+  size_t latency_sample_period_;
+  size_t sampling_counter_;
+
+  bool expect_request_success_;
+  bool expect_scan_amount_found_;
 };
 
 // Implementation details follow.
 
 template <class DatabaseInterface>
-inline Worker<DatabaseInterface>::Worker(DatabaseInterface* db,
-                                         const Workload* workload,
-                                         size_t offset, size_t num_requests,
-                                         const Flag* can_start,
-                                         std::optional<unsigned> pin_to_core)
+inline Worker<DatabaseInterface>::Worker(
+    DatabaseInterface* db, const Workload* workload, size_t offset,
+    size_t num_requests, const Flag* can_start,
+    std::optional<unsigned> pin_to_core, size_t latency_sample_period,
+    bool expect_request_success, bool expect_scan_amount_found)
     : ready_(false),
       done_(),
       db_(db),
@@ -63,7 +70,11 @@ inline Worker<DatabaseInterface>::Worker(DatabaseInterface* db,
       offset_(offset),
       num_requests_(num_requests),
       can_start_(can_start),
-      pin_to_core_(pin_to_core) {
+      pin_to_core_(pin_to_core),
+      latency_sample_period_(latency_sample_period),
+      sampling_counter_(0),
+      expect_request_success_(expect_request_success),
+      expect_scan_amount_found_(expect_scan_amount_found) {
   thread_ = std::thread(&Worker<DatabaseInterface>::WorkerMain, this);
 }
 
@@ -92,12 +103,17 @@ inline MetricsTracker&& Worker<DatabaseInterface>::GetResults() && {
 }
 
 template <typename Callable>
-inline std::pair<bool, std::chrono::nanoseconds> MeasureRunTime(
-    Callable callable) {
+inline std::optional<std::chrono::nanoseconds> MeasurementHelper(
+    Callable&& callable, bool measure_latency) {
+  if (!measure_latency) {
+    callable();
+    return std::optional<std::chrono::nanoseconds>();
+  }
+
   const auto start = std::chrono::steady_clock::now();
-  bool succeeded = callable();
+  callable();
   const auto end = std::chrono::steady_clock::now();
-  return {succeeded, end - start};
+  return end - start;
 }
 
 template <class DatabaseInterface>
@@ -129,72 +145,95 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
   for (size_t i = offset_; i < stop_before; ++i) {
     const auto& req = (*workload_)[i];
 
+    bool measure_latency = false;
+    if (++sampling_counter_ >= latency_sample_period_) {
+      measure_latency = true;
+      sampling_counter_ = 0;
+    }
+
     switch (req.op) {
       case Request::Operation::kRead: {
+        bool succeeded = false;
         value_out.clear();
-        auto res = MeasureRunTime([this, &req, &value_out, &read_xor]() {
-          bool succeeded = db_->Read(req.key, &value_out);
-          if (!succeeded) {
-            throw std::runtime_error(
-                "Failed to read a key requested by the benchmark!");
-          }
-          // Force a read of the extracted value. We want to count this time
-          // against the read latency too.
-          read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
-          return succeeded;
-        });
-        tracker_.RecordRead(res.second, value_out.size());
+        const auto run_time = MeasurementHelper(
+            [this, &req, &value_out, &read_xor, &succeeded]() {
+              succeeded = db_->Read(req.key, &value_out);
+              // Force a read of the extracted value. We want to count this time
+              // against the read latency too.
+              read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
+              return succeeded;
+            },
+            measure_latency);
+        tracker_.RecordRead(run_time, value_out.size(), succeeded);
+        if (!succeeded && expect_request_success_) {
+          throw std::runtime_error(
+              "Failed to read a key that was expected to be found.");
+        }
         break;
       }
 
       case Request::Operation::kInsert: {
-        auto res = MeasureRunTime([this, &req]() {
-          return db_->Insert(req.key, req.value, req.value_size);
-        });
-        if (!res.first) {
-          throw std::runtime_error(
-              "Failed to insert a key requested by the benchmark!");
-        }
         // Inserts count the whole record size, since this should be the first
         // time the entire record is written to the DB.
-        tracker_.RecordWrite(res.second, req.value_size + sizeof(req.key));
+        bool succeeded = false;
+        const auto run_time = MeasurementHelper(
+            [this, &req, &succeeded]() {
+              succeeded = db_->Insert(req.key, req.value, req.value_size);
+            },
+            measure_latency);
+        tracker_.RecordWrite(run_time, req.value_size + sizeof(req.key),
+                             succeeded);
+        if (!succeeded && expect_request_success_) {
+          throw std::runtime_error(
+              "Failed to insert a record (expected to succeed).");
+        }
         break;
       }
 
       case Request::Operation::kUpdate: {
-        auto res = MeasureRunTime([this, &req]() {
-          return db_->Update(req.key, req.value, req.value_size);
-        });
-        if (!res.first) {
-          throw std::runtime_error(
-              "Failed to update a key requested by the benchmark!");
-        }
         // Updates only record the value size, since the key should already
         // exist in the DB.
-        tracker_.RecordWrite(res.second, req.value_size);
+        bool succeeded = false;
+        const auto run_time = MeasurementHelper(
+            [this, &req, &succeeded]() {
+              succeeded = db_->Update(req.key, req.value, req.value_size);
+            },
+            measure_latency);
+        tracker_.RecordWrite(run_time, req.value_size, succeeded);
+        if (!succeeded && expect_request_success_) {
+          throw std::runtime_error(
+              "Failed to update a record (expected to succeed).");
+        }
         break;
       }
 
       case Request::Operation::kScan: {
+        bool succeeded = false;
         scan_out.clear();
         scan_out.reserve(req.scan_amount);
-        auto res = MeasureRunTime([this, &req, &scan_out, &read_xor]() {
-          bool succeeded = db_->Scan(req.key, req.scan_amount, &scan_out);
-          if (!succeeded || scan_out.size() != req.scan_amount) {
-            throw std::runtime_error(
-                "Failed to scan a key range requested by the benchmark!");
-          }
-          // Force a read of the first extracted value. We want to count this
-          // time against the read latency too.
-          read_xor ^= *reinterpret_cast<const uint32_t*>(
-              scan_out.front().second.c_str());
-          return succeeded;
-        });
+        const auto run_time = MeasurementHelper(
+            [this, &req, &scan_out, &read_xor, &succeeded]() {
+              succeeded = db_->Scan(req.key, req.scan_amount, &scan_out);
+              // Force a read of the first extracted value. We want to count
+              // this time against the read latency too.
+              read_xor ^= *reinterpret_cast<const uint32_t*>(
+                  scan_out.front().second.c_str());
+            },
+            measure_latency);
         size_t scanned_bytes = 0;
         for (const auto& entry : scan_out) {
-          scanned_bytes += entry.second.size();
+          scanned_bytes += sizeof(entry.first) + entry.second.size();
         }
-        tracker_.RecordScan(res.second, scanned_bytes, scan_out.size());
+        tracker_.RecordScan(run_time, scanned_bytes, scan_out.size(),
+                            succeeded);
+        if (!succeeded && expect_request_success_) {
+          throw std::runtime_error(
+              "Failed to run a range scan (expected to succeed).");
+        }
+        if (expect_scan_amount_found_ && scan_out.size() < req.scan_amount) {
+          throw std::runtime_error(
+              "A range scan returned too few (or too many) records.");
+        }
         break;
       }
 

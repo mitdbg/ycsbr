@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <optional>
 #include <vector>
 
 namespace ycsbr {
@@ -14,13 +15,15 @@ class Meter {
     latencies_.reserve(num_entries_hint);
   }
 
-  void Record(std::chrono::nanoseconds run_time, size_t bytes) {
+  void Record(std::optional<std::chrono::nanoseconds> run_time, size_t bytes) {
     RecordMultiple(run_time, bytes, /*count=*/1);
   }
 
-  void RecordMultiple(std::chrono::nanoseconds run_time, size_t bytes,
-                      size_t count) {
-    latencies_.push_back(run_time);
+  void RecordMultiple(std::optional<std::chrono::nanoseconds> run_time,
+                      size_t bytes, size_t count) {
+    if (run_time.has_value()) {
+      latencies_.push_back(*run_time);
+    }
     bytes_ += bytes;
     op_count_ += count;
   }
