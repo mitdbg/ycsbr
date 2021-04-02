@@ -17,12 +17,12 @@
 namespace ycsbr {
 namespace impl {
 
-// Runs a contiguous slice of a `Workload` (i.e., a contiguous slice of
+// Runs a contiguous slice of a `Trace` (i.e., a contiguous slice of
 // requests) in a separate thread.
 template <class DatabaseInterface>
 class Worker {
  public:
-  Worker(DatabaseInterface* db, const Workload* workload, size_t offset,
+  Worker(DatabaseInterface* db, const Trace* trace, size_t offset,
          size_t num_requests, const Flag* can_start,
          std::optional<unsigned> pin_to_core, size_t latency_sample_period,
          bool expect_request_success, bool expect_scan_amount_found);
@@ -42,7 +42,7 @@ class Worker {
   std::atomic<bool> ready_;
   Flag done_;
   DatabaseInterface* db_;
-  const Workload* workload_;
+  const Trace* trace_;
   size_t offset_, num_requests_;
   const Flag* can_start_;
   std::optional<unsigned> pin_to_core_;
@@ -59,14 +59,14 @@ class Worker {
 
 template <class DatabaseInterface>
 inline Worker<DatabaseInterface>::Worker(
-    DatabaseInterface* db, const Workload* workload, size_t offset,
+    DatabaseInterface* db, const Trace* trace, size_t offset,
     size_t num_requests, const Flag* can_start,
     std::optional<unsigned> pin_to_core, size_t latency_sample_period,
     bool expect_request_success, bool expect_scan_amount_found)
     : ready_(false),
       done_(),
       db_(db),
-      workload_(workload),
+      trace_(trace),
       offset_(offset),
       num_requests_(num_requests),
       can_start_(can_start),
@@ -128,7 +128,7 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
     pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset);
   }
 
-  // Initialize state needed for the workload run.
+  // Initialize state needed for the trace replay.
   uint32_t read_xor = 0;
   std::string value_out;
   std::vector<std::pair<Request::Key, std::string>> scan_out;
@@ -140,10 +140,10 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
   ready_.store(true, std::memory_order_release);
   can_start_->Wait();
 
-  // Run our workload slice.
+  // Run our trace slice.
   const size_t stop_before = offset_ + num_requests_;
   for (size_t i = offset_; i < stop_before; ++i) {
-    const auto& req = (*workload_)[i];
+    const auto& req = (*trace_)[i];
 
     bool measure_latency = false;
     if (++sampling_counter_ >= latency_sample_period_) {

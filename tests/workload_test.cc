@@ -14,52 +14,50 @@ bool SystemIsLittleEndian() {
   return *reinterpret_cast<const char*>(&one) == 1;
 }
 
-TEST_F(WorkloadLoadA, LoadBulkLoad) {
-  const Workload::Options options;
-  const BulkLoadWorkload load =
-      BulkLoadWorkload::LoadFromFile(workload_file, options);
-  ASSERT_EQ(load.size(), workload_size);
+TEST_F(TraceLoadA, LoadBulkLoad) {
+  const Trace::Options options;
+  const BulkLoadTrace load = BulkLoadTrace::LoadFromFile(trace_file, options);
+  ASSERT_EQ(load.size(), trace_size);
 
-  // Can also load as a regular workload.
-  const Workload as_workload = Workload::LoadFromFile(workload_file, options);
-  ASSERT_EQ(as_workload.size(), workload_size);
+  // Can also load as a regular trace.
+  const Trace as_trace = Trace::LoadFromFile(trace_file, options);
+  ASSERT_EQ(as_trace.size(), trace_size);
 }
 
-TEST_F(WorkloadLoadA, SmallValueInvalid) {
-  Workload::Options options;
+TEST_F(TraceLoadA, SmallValueInvalid) {
+  Trace::Options options;
   options.value_size = 1;
-  ASSERT_THROW(Workload::LoadFromFile(workload_file, options),
-               std::invalid_argument);
-  ASSERT_THROW(BulkLoadWorkload::LoadFromFile(workload_file, options),
-               std::invalid_argument);
-}
-
-TEST_F(WorkloadRunA, InvalidLoadBulkLoad) {
-  const Workload::Options options;
-  ASSERT_THROW(BulkLoadWorkload::LoadFromFile(workload_file, options),
+  ASSERT_THROW(Trace::LoadFromFile(trace_file, options), std::invalid_argument);
+  ASSERT_THROW(BulkLoadTrace::LoadFromFile(trace_file, options),
                std::invalid_argument);
 }
 
-TEST_F(WorkloadRunA, LoadWorkload) {
-  const Workload::Options options;
-  const Workload workload = Workload::LoadFromFile(workload_file, options);
-  ASSERT_EQ(workload.size(), workload_size);
-}
-
-TEST_F(WorkloadRunE, InvalidLoadBulkLoad) {
-  const Workload::Options options;
-  ASSERT_THROW(BulkLoadWorkload::LoadFromFile(workload_file, options),
+TEST_F(TraceReplayA, InvalidLoadBulkLoad) {
+  const Trace::Options options;
+  ASSERT_THROW(BulkLoadTrace::LoadFromFile(trace_file, options),
                std::invalid_argument);
 }
 
-TEST_F(WorkloadRunE, LoadWorkload) {
-  const Workload::Options options;
-  const Workload workload = Workload::LoadFromFile(workload_file, options);
-  ASSERT_EQ(workload.size(), workload_size);
+TEST_F(TraceReplayA, LoadWorkload) {
+  const Trace::Options options;
+  const Trace trace = Trace::LoadFromFile(trace_file, options);
+  ASSERT_EQ(trace.size(), trace_size);
+}
+
+TEST_F(TraceReplayE, InvalidLoadBulkLoad) {
+  const Trace::Options options;
+  ASSERT_THROW(BulkLoadTrace::LoadFromFile(trace_file, options),
+               std::invalid_argument);
+}
+
+TEST_F(TraceReplayE, LoadWorkload) {
+  const Trace::Options options;
+  const Trace trace = Trace::LoadFromFile(trace_file, options);
+  ASSERT_EQ(trace.size(), trace_size);
 
   // Workload E contains scans.
   bool found_scan = false;
-  for (const auto& req : workload) {
+  for (const auto& req : trace) {
     if (req.op == Request::Operation::kScan) {
       found_scan = true;
       break;
@@ -68,27 +66,26 @@ TEST_F(WorkloadRunE, LoadWorkload) {
   ASSERT_TRUE(found_scan);
 }
 
-TEST_F(WorkloadLoadA, SwapBytesMinMax) {
-  Workload::Options non_swap;
+TEST_F(TraceLoadA, SwapBytesMinMax) {
+  Trace::Options non_swap;
   non_swap.swap_key_bytes = false;
-  const Workload workload = Workload::LoadFromFile(workload_file, non_swap);
-  ASSERT_EQ(workload.size(), workload_size);
+  const Trace trace = Trace::LoadFromFile(trace_file, non_swap);
+  ASSERT_EQ(trace.size(), trace_size);
 
   // Use numeric comparison to extract the min and max key.
   const auto compare = [](const Request& r1, const Request& r2) {
     return r1.key < r2.key;
   };
   Request::Key min_numeric_key =
-      std::min_element(workload.begin(), workload.end(), compare)->key;
+      std::min_element(trace.begin(), trace.end(), compare)->key;
   Request::Key max_numeric_key =
-      std::max_element(workload.begin(), workload.end(), compare)->key;
+      std::max_element(trace.begin(), trace.end(), compare)->key;
 
   // Reload the workload, this time swapping bytes on little endian machines.
-  Workload::Options swap_if_needed;
+  Trace::Options swap_if_needed;
   swap_if_needed.swap_key_bytes = SystemIsLittleEndian();
-  const Workload lexicographic =
-      Workload::LoadFromFile(workload_file, swap_if_needed);
-  const Workload::MinMaxKeys range = lexicographic.GetKeyRange();
+  const Trace lexicographic = Trace::LoadFromFile(trace_file, swap_if_needed);
+  const Trace::MinMaxKeys range = lexicographic.GetKeyRange();
 
   // Make sure the key range is as expected, based on endianness and byte
   // swapping.
@@ -100,11 +97,11 @@ TEST_F(WorkloadLoadA, SwapBytesMinMax) {
   ASSERT_EQ(max_numeric_key, range.max);
 }
 
-TEST_F(WorkloadRunA, SortRequests) {
-  Workload::Options non_swap;
+TEST_F(TraceReplayA, SortRequests) {
+  Trace::Options non_swap;
   non_swap.swap_key_bytes = false;
-  const Workload numeric = Workload::LoadFromFile(workload_file, non_swap);
-  ASSERT_EQ(numeric.size(), workload_size);
+  const Trace numeric = Trace::LoadFromFile(trace_file, non_swap);
+  ASSERT_EQ(numeric.size(), trace_size);
 
   std::vector<Request::Key> numeric_keys;
   numeric_keys.reserve(numeric.size());
@@ -116,11 +113,10 @@ TEST_F(WorkloadRunA, SortRequests) {
   std::sort(numeric_keys.begin(), numeric_keys.end());
 
   // Load and sort lexicographically (swapping to big endian if needed).
-  Workload::Options swap_if_needed;
+  Trace::Options swap_if_needed;
   swap_if_needed.swap_key_bytes = SystemIsLittleEndian();
   swap_if_needed.sort_requests = true;
-  const Workload lexicographic =
-      Workload::LoadFromFile(workload_file, swap_if_needed);
+  const Trace lexicographic = Trace::LoadFromFile(trace_file, swap_if_needed);
 
   ASSERT_EQ(lexicographic.size(), numeric.size());
 

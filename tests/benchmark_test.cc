@@ -19,7 +19,7 @@ class TestDatabaseInterface {
   void InitializeDatabase() { ++initialize_calls; }
   void DeleteDatabase() { ++delete_calls; }
 
-  void BulkLoad(const BulkLoadWorkload& load) { ++bulk_load_calls; }
+  void BulkLoad(const BulkLoadTrace& load) { ++bulk_load_calls; }
 
   bool Update(Request::Key key, const char* value, size_t value_size) {
     ++update_calls;
@@ -58,10 +58,9 @@ class TestDatabaseInterface {
   std::atomic<size_t> shutdown_worker_calls = 0;
 };
 
-TEST_F(WorkloadLoadA, BenchBulkLoad) {
-  const Workload::Options options;
-  const BulkLoadWorkload load =
-      BulkLoadWorkload::LoadFromFile(workload_file, options);
+TEST_F(TraceLoadA, BenchBulkLoad) {
+  const Trace::Options options;
+  const BulkLoadTrace load = BulkLoadTrace::LoadFromFile(trace_file, options);
   for (const auto& req : load) {
     ASSERT_NE(req.value, nullptr);
     ASSERT_EQ(req.value_size, options.value_size);
@@ -80,35 +79,33 @@ TEST_F(WorkloadLoadA, BenchBulkLoad) {
   ASSERT_EQ(db.scan_calls, 0);
 }
 
-TEST_F(WorkloadLoadA, BenchLoadRunA) {
-  const Workload::Options options;
-  const BulkLoadWorkload load =
-      BulkLoadWorkload::LoadFromFile(workload_file, options);
-  const Workload workload =
-      BulkLoadWorkload::LoadFromFile(workload_file, options);
-  ASSERT_EQ(load.size(), workload_size);
-  ASSERT_EQ(workload.size(), workload_size);
+TEST_F(TraceLoadA, BenchLoadRunA) {
+  const Trace::Options options;
+  const BulkLoadTrace load = BulkLoadTrace::LoadFromFile(trace_file, options);
+  const Trace trace = BulkLoadTrace::LoadFromFile(trace_file, options);
+  ASSERT_EQ(load.size(), trace_size);
+  ASSERT_EQ(trace.size(), trace_size);
 
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, workload, &load);
+  auto res = RunTimedWorkload(db, trace, &load);
   // The bulk load and workload run on different threads.
   ASSERT_EQ(db.initialize_worker_calls, 2);
   ASSERT_EQ(db.shutdown_worker_calls, 2);
   ASSERT_EQ(db.initialize_calls, 1);
   ASSERT_EQ(db.delete_calls, 1);
   ASSERT_EQ(db.bulk_load_calls, 1);
-  ASSERT_EQ(db.insert_calls, workload_size);
+  ASSERT_EQ(db.insert_calls, trace_size);
   ASSERT_EQ(db.update_calls, 0);
   ASSERT_EQ(db.read_calls, 0);
   ASSERT_EQ(db.scan_calls, 0);
 }
 
-TEST_F(WorkloadRunA, BenchRunA) {
-  const Workload::Options options;
-  const Workload load = Workload::LoadFromFile(workload_file, options);
+TEST_F(TraceReplayA, BenchRunA) {
+  const Trace::Options options;
+  const Trace trace = Trace::LoadFromFile(trace_file, options);
 
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, load);
+  auto res = RunTimedWorkload(db, trace);
   ASSERT_EQ(db.initialize_worker_calls, 1);
   ASSERT_EQ(db.shutdown_worker_calls, 1);
   ASSERT_EQ(db.initialize_calls, 1);
@@ -118,16 +115,16 @@ TEST_F(WorkloadRunA, BenchRunA) {
   ASSERT_TRUE(db.update_calls > 0);
   ASSERT_TRUE(db.read_calls > 0);
   ASSERT_EQ(db.scan_calls, 0);
-  ASSERT_EQ(db.update_calls + db.read_calls, workload_size);
+  ASSERT_EQ(db.update_calls + db.read_calls, trace_size);
 }
 
-TEST_F(WorkloadRunE, BenchRunE) {
+TEST_F(TraceReplayE, BenchRunE) {
   // Workload E is a range scan workload with some inserts.
-  const Workload::Options options;
-  const Workload load = Workload::LoadFromFile(workload_file, options);
+  const Trace::Options options;
+  const Trace trace = Trace::LoadFromFile(trace_file, options);
 
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, load);
+  auto res = RunTimedWorkload(db, trace);
   ASSERT_EQ(db.initialize_worker_calls, 1);
   ASSERT_EQ(db.shutdown_worker_calls, 1);
   ASSERT_EQ(db.initialize_calls, 1);
@@ -139,14 +136,14 @@ TEST_F(WorkloadRunE, BenchRunE) {
   ASSERT_TRUE(db.scan_calls > 0);
 }
 
-TEST_F(WorkloadRunA, MultithreadedRun) {
-  const Workload::Options options;
-  const Workload load = Workload::LoadFromFile(workload_file, options);
+TEST_F(TraceReplayA, MultithreadedRun) {
+  const Trace::Options options;
+  const Trace trace = Trace::LoadFromFile(trace_file, options);
 
   BenchmarkOptions boptions;
   boptions.num_threads = 5;
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, load, nullptr, boptions);
+  auto res = RunTimedWorkload(db, trace, nullptr, boptions);
   ASSERT_EQ(db.initialize_worker_calls, 5);
   ASSERT_EQ(db.shutdown_worker_calls, 5);
   ASSERT_EQ(db.initialize_calls, 1);
@@ -156,19 +153,19 @@ TEST_F(WorkloadRunA, MultithreadedRun) {
   ASSERT_TRUE(db.update_calls > 0);
   ASSERT_TRUE(db.read_calls > 0);
   ASSERT_EQ(db.scan_calls, 0);
-  ASSERT_EQ(db.update_calls + db.read_calls, workload_size);
+  ASSERT_EQ(db.update_calls + db.read_calls, trace_size);
   ASSERT_EQ(res.Reads().NumOperations(), db.read_calls);
   ASSERT_EQ(res.Writes().NumOperations(), db.update_calls);
 }
 
-TEST_F(WorkloadRunA, NoThreads) {
-  const Workload::Options options;
-  const Workload load = Workload::LoadFromFile(workload_file, options);
+TEST_F(TraceReplayA, NoThreads) {
+  const Trace::Options options;
+  const Trace trace = Trace::LoadFromFile(trace_file, options);
 
   BenchmarkOptions boptions;
   boptions.num_threads = 0;
   TestDatabaseInterface db;
-  ASSERT_THROW(RunTimedWorkload(db, load, nullptr, boptions),
+  ASSERT_THROW(RunTimedWorkload(db, trace, nullptr, boptions),
                std::invalid_argument);
   ASSERT_EQ(db.initialize_worker_calls, 0);
   ASSERT_EQ(db.shutdown_worker_calls, 0);
@@ -181,17 +178,16 @@ TEST_F(WorkloadRunA, NoThreads) {
   ASSERT_EQ(db.scan_calls, 0);
 }
 
-TEST_F(WorkloadLoadA, NoThreads) {
-  const Workload::Options options;
-  const BulkLoadWorkload load =
-      BulkLoadWorkload::LoadFromFile(workload_file, options);
-  const Workload workload = Workload::LoadFromFile(workload_file, options);
+TEST_F(TraceLoadA, NoThreads) {
+  const Trace::Options options;
+  const BulkLoadTrace load = BulkLoadTrace::LoadFromFile(trace_file, options);
+  const Trace trace = Trace::LoadFromFile(trace_file, options);
 
   BenchmarkOptions boptions;
   boptions.num_threads = 0;
   TestDatabaseInterface db;
 
-  ASSERT_THROW(RunTimedWorkload(db, workload, nullptr, boptions),
+  ASSERT_THROW(RunTimedWorkload(db, trace, nullptr, boptions),
                std::invalid_argument);
   ASSERT_EQ(db.initialize_worker_calls, 0);
   ASSERT_EQ(db.shutdown_worker_calls, 0);
@@ -199,7 +195,7 @@ TEST_F(WorkloadLoadA, NoThreads) {
   ASSERT_EQ(db.delete_calls, 0);
   ASSERT_EQ(db.bulk_load_calls, 0);
 
-  ASSERT_THROW(RunTimedWorkload(db, workload, &load, boptions),
+  ASSERT_THROW(RunTimedWorkload(db, trace, &load, boptions),
                std::invalid_argument);
   ASSERT_EQ(db.initialize_worker_calls, 0);
   ASSERT_EQ(db.shutdown_worker_calls, 0);

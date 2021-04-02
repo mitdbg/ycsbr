@@ -57,7 +57,7 @@ struct Request {
   size_t value_size;
 };
 
-class Workload {
+class Trace {
  public:
   struct Options {
     // The workload's keys are encoded as 64-bit integers. On little endian
@@ -73,7 +73,7 @@ class Workload {
     size_t value_size = 1024;
     int rng_seed = 42;
   };
-  static Workload LoadFromFile(const std::string& file, const Options& options);
+  static Trace LoadFromFile(const std::string& file, const Options& options);
 
   using const_iterator = std::vector<Request>::const_iterator;
   const_iterator begin() const { return requests_.begin(); }
@@ -93,7 +93,7 @@ class Workload {
   MinMaxKeys GetKeyRange() const;
 
  protected:
-  Workload(std::vector<Request> requests, std::unique_ptr<char[]> values)
+  Trace(std::vector<Request> requests, std::unique_ptr<char[]> values)
       : requests_(std::move(requests)), values_(std::move(values)) {}
 
  private:
@@ -102,14 +102,14 @@ class Workload {
   std::unique_ptr<char[]> values_;
 };
 
-class BulkLoadWorkload : public Workload {
+class BulkLoadTrace : public Trace {
  public:
-  static BulkLoadWorkload LoadFromFile(const std::string& file,
-                                       const Workload::Options& options);
+  static BulkLoadTrace LoadFromFile(const std::string& file,
+                                    const Trace::Options& options);
   size_t DatasetSizeBytes() const;
 
  private:
-  BulkLoadWorkload(Workload workload) : Workload(std::move(workload)) {}
+  BulkLoadTrace(Trace trace) : Trace(std::move(trace)) {}
 };
 
 }  // namespace ycsbr

@@ -10,8 +10,8 @@ namespace ycsbr {
 // much memory for very large bulk loads.
 constexpr size_t kNumUniqueValues = 1024;
 
-inline Workload Workload::LoadFromFile(const std::string& file,
-                                       const Options& options) {
+inline Trace Trace::LoadFromFile(const std::string& file,
+                                 const Options& options) {
   if (options.value_size < 4) {
     throw std::invalid_argument("Options::value_size must be at least 4.");
   }
@@ -76,10 +76,10 @@ inline Workload Workload::LoadFromFile(const std::string& file,
     }
   }
 
-  return Workload(std::move(workload), std::move(values));
+  return Trace(std::move(workload), std::move(values));
 }
 
-inline Workload::MinMaxKeys Workload::GetKeyRange() const {
+inline Trace::MinMaxKeys Trace::GetKeyRange() const {
   Request::Key min = begin()->key;
   Request::Key max = begin()->key;
   for (const auto& req : *this) {
@@ -93,9 +93,9 @@ inline Workload::MinMaxKeys Workload::GetKeyRange() const {
   return MinMaxKeys(min, max);
 }
 
-inline BulkLoadWorkload BulkLoadWorkload::LoadFromFile(
-    const std::string& file, const Workload::Options& options) {
-  Workload workload = Workload::LoadFromFile(file, options);
+inline BulkLoadTrace BulkLoadTrace::LoadFromFile(
+    const std::string& file, const Trace::Options& options) {
+  Trace workload = Trace::LoadFromFile(file, options);
   for (const auto& request : workload) {
     if (request.op != Request::Operation::kInsert) {
       throw std::invalid_argument(
@@ -103,10 +103,10 @@ inline BulkLoadWorkload BulkLoadWorkload::LoadFromFile(
           "requests).");
     }
   }
-  return BulkLoadWorkload(std::move(workload));
+  return BulkLoadTrace(std::move(workload));
 }
 
-inline size_t BulkLoadWorkload::DatasetSizeBytes() const {
+inline size_t BulkLoadTrace::DatasetSizeBytes() const {
   size_t total_size = 0;
   for (const auto& request : *this) {
     total_size += sizeof(request.key) + request.value_size;

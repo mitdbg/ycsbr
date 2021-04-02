@@ -42,23 +42,23 @@ struct BenchmarkOptions {
   bool expect_scan_amount_found = false;
 };
 
-// Runs the specified (timed) workload. If `load` is provided, this function
-// will run the bulk load workload before starting the timed workload.
+// Runs the specified (timed) trace. If `load` is provided, this function will
+// run the bulk load trace before starting the timed trace.
 //
-// NOTE: Only running the workload is timed. Loading the records is performed by
+// NOTE: Only running the trace is timed. Loading the records is performed by
 // calling `BulkLoad()` on the specified `DatabaseInterface`. The bulk load
 // always runs on a single thread.
 template <class DatabaseInterface>
 BenchmarkResult RunTimedWorkload(
-    DatabaseInterface& db, const Workload& workload,
-    const BulkLoadWorkload* load = nullptr,
+    DatabaseInterface& db, const Trace& trace,
+    const BulkLoadTrace* load = nullptr,
     const BenchmarkOptions& options = BenchmarkOptions());
 
 // Measures the time it takes to load the specified records using bulk load.
 // NOTE: The bulk load always runs on a single thread.
 template <class DatabaseInterface>
 BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                 const BulkLoadWorkload& load);
+                                 const BulkLoadTrace& load);
 
 class BenchmarkResult {
  public:

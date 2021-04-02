@@ -32,8 +32,8 @@ class CallOnExit {
 
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
-                                            const Workload& workload,
-                                            const BulkLoadWorkload* load,
+                                            const Trace& trace,
+                                            const BulkLoadTrace* load,
                                             const BenchmarkOptions& options) {
   if (options.num_threads == 0) {
     throw std::invalid_argument("Must use at least 1 thread.");
@@ -44,8 +44,8 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
   workers.reserve(options.num_threads);
 
   // Split up the requests.
-  const size_t min_requests_per_worker = workload.size() / options.num_threads;
-  size_t leftover_requests = workload.size() % options.num_threads;
+  const size_t min_requests_per_worker = trace.size() / options.num_threads;
+  size_t leftover_requests = trace.size() % options.num_threads;
   size_t next_offset = 0;
   for (size_t worker_id = 0; worker_id < options.num_threads; ++worker_id) {
     size_t num_requests = min_requests_per_worker;
@@ -58,7 +58,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
             ? std::optional<unsigned>(options.pin_to_core_map[worker_id])
             : std::optional<unsigned>();
     workers.emplace_back(std::make_unique<Worker<DatabaseInterface>>(
-        &db, &workload, next_offset, num_requests, &start_running, core,
+        &db, &trace, next_offset, num_requests, &start_running, core,
         options.latency_sample_period, options.expect_request_success,
         options.expect_scan_amount_found));
     next_offset += num_requests;
@@ -76,7 +76,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
     db.InitializeWorker(std::this_thread::get_id());
   }
 
-  // Initialize the database before starting the workload.
+  // Initialize the database before starting the trace replay.
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });
 
@@ -85,7 +85,7 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
     db.BulkLoad(*load);
   }
 
-  // Run the workload.
+  // Run the trace replay.
   const auto start = std::chrono::steady_clock::now();
   start_running.Raise();
   for (auto& worker : workers) {
@@ -113,15 +113,15 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
 
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                        const Workload& workload,
-                                        const BulkLoadWorkload* load,
+                                        const Trace& trace,
+                                        const BulkLoadTrace* load,
                                         const BenchmarkOptions& options) {
-  return impl::RunTimedWorkloadImpl(db, workload, load, options);
+  return impl::RunTimedWorkloadImpl(db, trace, load, options);
 }
 
 template <class DatabaseInterface>
 inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                        const BulkLoadWorkload& load) {
+                                        const BulkLoadTrace& load) {
   db.InitializeWorker(std::this_thread::get_id());
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });

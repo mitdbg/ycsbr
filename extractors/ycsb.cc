@@ -20,7 +20,7 @@ const std::unordered_map<std::string, Op> kStringToOp = {
     {"UPDATE", Op::kUpdate},
     {"SCAN", Op::kScan}};
 
-void ExtractYCSBWorkload(const std::string& output_file) {
+void ExtractYCSBTrace(const std::string& output_file) {
   std::ofstream output(output_file, std::ios::out | std::ios::binary);
   if (!output) {
     throw std::runtime_error(
@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  ExtractYCSBWorkload(output_file);
+  ExtractYCSBTrace(output_file);
 
   return 0;
 }
