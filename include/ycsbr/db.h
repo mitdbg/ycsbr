@@ -10,10 +10,10 @@
 namespace ycsbr {
 
 // This is an example `DatabaseInterface` - you need to implement all of these
-// methods to be able to use `RunTimedWorkload()`.
+// methods to be able to use `ReplayTrace()`.
 //
 // **Do not subclass this class.** Just implement the same methods with the same
-// signatures in a concrete class. We use templates in RunTimedWorkload() to
+// signatures in a concrete class. We use templates in ReplayTrace() to
 // avoid vtable overheads.
 class ExampleDatabaseInterface final {
  public:

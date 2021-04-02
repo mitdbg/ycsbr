@@ -67,7 +67,7 @@ TEST_F(TraceLoadA, BenchBulkLoad) {
   }
 
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, load);
+  auto res = ReplayTrace(db, load);
   ASSERT_EQ(db.initialize_worker_calls, 1);
   ASSERT_EQ(db.shutdown_worker_calls, 1);
   ASSERT_EQ(db.initialize_calls, 1);
@@ -87,7 +87,7 @@ TEST_F(TraceLoadA, BenchLoadRunA) {
   ASSERT_EQ(trace.size(), trace_size);
 
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, trace, &load);
+  auto res = ReplayTrace(db, trace, &load);
   // The bulk load and workload run on different threads.
   ASSERT_EQ(db.initialize_worker_calls, 2);
   ASSERT_EQ(db.shutdown_worker_calls, 2);
@@ -105,7 +105,7 @@ TEST_F(TraceReplayA, BenchRunA) {
   const Trace trace = Trace::LoadFromFile(trace_file, options);
 
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, trace);
+  auto res = ReplayTrace(db, trace);
   ASSERT_EQ(db.initialize_worker_calls, 1);
   ASSERT_EQ(db.shutdown_worker_calls, 1);
   ASSERT_EQ(db.initialize_calls, 1);
@@ -124,7 +124,7 @@ TEST_F(TraceReplayE, BenchRunE) {
   const Trace trace = Trace::LoadFromFile(trace_file, options);
 
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, trace);
+  auto res = ReplayTrace(db, trace);
   ASSERT_EQ(db.initialize_worker_calls, 1);
   ASSERT_EQ(db.shutdown_worker_calls, 1);
   ASSERT_EQ(db.initialize_calls, 1);
@@ -143,7 +143,7 @@ TEST_F(TraceReplayA, MultithreadedRun) {
   BenchmarkOptions boptions;
   boptions.num_threads = 5;
   TestDatabaseInterface db;
-  auto res = RunTimedWorkload(db, trace, nullptr, boptions);
+  auto res = ReplayTrace(db, trace, nullptr, boptions);
   ASSERT_EQ(db.initialize_worker_calls, 5);
   ASSERT_EQ(db.shutdown_worker_calls, 5);
   ASSERT_EQ(db.initialize_calls, 1);
@@ -165,7 +165,7 @@ TEST_F(TraceReplayA, NoThreads) {
   BenchmarkOptions boptions;
   boptions.num_threads = 0;
   TestDatabaseInterface db;
-  ASSERT_THROW(RunTimedWorkload(db, trace, nullptr, boptions),
+  ASSERT_THROW(ReplayTrace(db, trace, nullptr, boptions),
                std::invalid_argument);
   ASSERT_EQ(db.initialize_worker_calls, 0);
   ASSERT_EQ(db.shutdown_worker_calls, 0);
@@ -187,7 +187,7 @@ TEST_F(TraceLoadA, NoThreads) {
   boptions.num_threads = 0;
   TestDatabaseInterface db;
 
-  ASSERT_THROW(RunTimedWorkload(db, trace, nullptr, boptions),
+  ASSERT_THROW(ReplayTrace(db, trace, nullptr, boptions),
                std::invalid_argument);
   ASSERT_EQ(db.initialize_worker_calls, 0);
   ASSERT_EQ(db.shutdown_worker_calls, 0);
@@ -195,8 +195,7 @@ TEST_F(TraceLoadA, NoThreads) {
   ASSERT_EQ(db.delete_calls, 0);
   ASSERT_EQ(db.bulk_load_calls, 0);
 
-  ASSERT_THROW(RunTimedWorkload(db, trace, &load, boptions),
-               std::invalid_argument);
+  ASSERT_THROW(ReplayTrace(db, trace, &load, boptions), std::invalid_argument);
   ASSERT_EQ(db.initialize_worker_calls, 0);
   ASSERT_EQ(db.shutdown_worker_calls, 0);
   ASSERT_EQ(db.initialize_calls, 0);

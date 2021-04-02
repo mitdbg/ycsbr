@@ -31,10 +31,10 @@ class CallOnExit {
 };
 
 template <class DatabaseInterface>
-inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
-                                            const Trace& trace,
-                                            const BulkLoadTrace* load,
-                                            const BenchmarkOptions& options) {
+inline BenchmarkResult ReplayTraceImpl(DatabaseInterface& db,
+                                       const Trace& trace,
+                                       const BulkLoadTrace* load,
+                                       const BenchmarkOptions& options) {
   if (options.num_threads == 0) {
     throw std::invalid_argument("Must use at least 1 thread.");
   }
@@ -112,16 +112,15 @@ inline BenchmarkResult RunTimedWorkloadImpl(DatabaseInterface& db,
 }  // namespace impl
 
 template <class DatabaseInterface>
-inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                        const Trace& trace,
-                                        const BulkLoadTrace* load,
-                                        const BenchmarkOptions& options) {
-  return impl::RunTimedWorkloadImpl(db, trace, load, options);
+inline BenchmarkResult ReplayTrace(DatabaseInterface& db, const Trace& trace,
+                                   const BulkLoadTrace* load,
+                                   const BenchmarkOptions& options) {
+  return impl::ReplayTraceImpl(db, trace, load, options);
 }
 
 template <class DatabaseInterface>
-inline BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                        const BulkLoadTrace& load) {
+inline BenchmarkResult ReplayTrace(DatabaseInterface& db,
+                                   const BulkLoadTrace& load) {
   db.InitializeWorker(std::this_thread::get_id());
   db.InitializeDatabase();
   impl::CallOnExit guard([&db]() { db.DeleteDatabase(); });

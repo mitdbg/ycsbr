@@ -42,14 +42,14 @@ struct BenchmarkOptions {
   bool expect_scan_amount_found = false;
 };
 
-// Runs the specified (timed) trace. If `load` is provided, this function will
-// run the bulk load trace before starting the timed trace.
+// Replays the specified trace (as a benchmark). If `load` is provided, this
+// function will run the bulk load trace before starting the timed trace.
 //
 // NOTE: Only running the trace is timed. Loading the records is performed by
 // calling `BulkLoad()` on the specified `DatabaseInterface`. The bulk load
 // always runs on a single thread.
 template <class DatabaseInterface>
-BenchmarkResult RunTimedWorkload(
+BenchmarkResult ReplayTrace(
     DatabaseInterface& db, const Trace& trace,
     const BulkLoadTrace* load = nullptr,
     const BenchmarkOptions& options = BenchmarkOptions());
@@ -57,8 +57,7 @@ BenchmarkResult RunTimedWorkload(
 // Measures the time it takes to load the specified records using bulk load.
 // NOTE: The bulk load always runs on a single thread.
 template <class DatabaseInterface>
-BenchmarkResult RunTimedWorkload(DatabaseInterface& db,
-                                 const BulkLoadTrace& load);
+BenchmarkResult ReplayTrace(DatabaseInterface& db, const BulkLoadTrace& load);
 
 class BenchmarkResult {
  public:
