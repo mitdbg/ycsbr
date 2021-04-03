@@ -13,12 +13,12 @@ set(srcdir include/ycsbr)
 target_sources(ycsbrunner
   INTERFACE
     ${srcdir}/impl/benchmark-inl.h
-    ${srcdir}/impl/data-inl.h
+    ${srcdir}/impl/trace-inl.h
     ${srcdir}/impl/flag.h
     ${srcdir}/impl/tracking.h
     ${srcdir}/impl/worker.h
     ${srcdir}/benchmark.h
-    ${srcdir}/data.h
+    ${srcdir}/trace.h
     ${srcdir}/db.h
     ${srcdir}/meter.h
     ${srcdir}/ycsbr.h)
