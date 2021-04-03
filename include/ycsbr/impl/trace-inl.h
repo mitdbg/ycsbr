@@ -1,4 +1,4 @@
-// Implementation of declarations in ycsbr/data.h. Do not include this header!
+// Implementation of declarations in ycsbr/trace.h. Do not include this header!
 #include <algorithm>
 #include <cstring>
 #include <fstream>

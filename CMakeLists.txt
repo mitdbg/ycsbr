@@ -18,9 +18,10 @@ target_sources(ycsbrunner
     ${srcdir}/impl/tracking.h
     ${srcdir}/impl/worker.h
     ${srcdir}/benchmark.h
-    ${srcdir}/trace.h
     ${srcdir}/db.h
     ${srcdir}/meter.h
+    ${srcdir}/request.h
+    ${srcdir}/trace.h
     ${srcdir}/ycsbr.h)
 
 if(YR_BUILD_EXTRACTOR)
