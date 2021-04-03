@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-#include "data.h"
+#include "trace.h"
 
 namespace ycsbr {
 
@@ -35,7 +35,7 @@ class ExampleDatabaseInterface final {
   virtual void DeleteDatabase() = 0;
 
   // Load the records into the database.
-  virtual void BulkLoad(const BulkLoadWorkload& load) = 0;
+  virtual void BulkLoad(const BulkLoadTrace& load) = 0;
 
   // Update the value at the specified key. Return true if the update succeeded.
   virtual bool Update(Request::Key key, const char* value,
