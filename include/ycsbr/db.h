@@ -17,6 +17,12 @@ namespace ycsbr {
 // avoid vtable overheads.
 class ExampleDatabaseInterface final {
  public:
+  // The class must be default constructible.
+  ExampleDatabaseInterface() = default;
+
+  // The class must have a public destructor.
+  virtual ~ExampleDatabaseInterface() = default;
+
   // Called once by each worker thread **before** the database is initialized.
   // Note that this method will be called concurrently by each worker thread.
   virtual void InitializeWorker(const std::thread::id& worker_id) = 0;

@@ -16,6 +16,9 @@ target_sources(ycsbrunner
     ${srcdir}/impl/benchmark_result-inl.h
     ${srcdir}/impl/benchmark-inl.h
     ${srcdir}/impl/flag.h
+    ${srcdir}/impl/session-inl.h
+    ${srcdir}/impl/thread_pool-inl.h
+    ${srcdir}/impl/thread_pool.h
     ${srcdir}/impl/trace-inl.h
     ${srcdir}/impl/tracking.h
     ${srcdir}/impl/worker.h
@@ -24,6 +27,7 @@ target_sources(ycsbrunner
     ${srcdir}/db.h
     ${srcdir}/meter.h
     ${srcdir}/request.h
+    ${srcdir}/session.h
     ${srcdir}/trace.h
     ${srcdir}/ycsbr.h)
 

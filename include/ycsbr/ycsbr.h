@@ -5,4 +5,5 @@
 #include "db.h"
 #include "meter.h"
 #include "request.h"
+#include "session.h"
 #include "trace.h"
