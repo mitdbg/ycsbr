@@ -24,7 +24,8 @@ class Worker {
   Worker(DatabaseInterface* db, const Trace* trace, size_t offset,
          size_t num_requests, const Flag* can_start,
          std::optional<unsigned> pin_to_core, size_t latency_sample_period,
-         bool expect_request_success, bool expect_scan_amount_found);
+         bool expect_request_success, bool expect_scan_amount_found,
+         bool internal_benchmark_mode = false);
   ~Worker();
 
   Worker(const Worker&) = delete;
@@ -34,8 +35,12 @@ class Worker {
   void Wait();
   MetricsTracker&& GetResults() &&;
 
+  // Meant for use by YCSBR's internal microbenchmarks.
+  void BM_WorkloadLoop();
+
  private:
   void WorkerMain();
+  void WorkloadLoop();
 
   std::thread thread_;
   std::atomic<bool> ready_;
@@ -52,6 +57,7 @@ class Worker {
 
   bool expect_request_success_;
   bool expect_scan_amount_found_;
+  bool internal_benchmark_mode_;
 };
 
 // Implementation details follow.
@@ -61,7 +67,8 @@ inline Worker<DatabaseInterface>::Worker(
     DatabaseInterface* db, const Trace* trace, size_t offset,
     size_t num_requests, const Flag* can_start,
     std::optional<unsigned> pin_to_core, size_t latency_sample_period,
-    bool expect_request_success, bool expect_scan_amount_found)
+    bool expect_request_success, bool expect_scan_amount_found,
+    bool internal_benchmark_mode)
     : ready_(false),
       done_(),
       db_(db),
@@ -73,12 +80,15 @@ inline Worker<DatabaseInterface>::Worker(
       latency_sample_period_(latency_sample_period),
       sampling_counter_(0),
       expect_request_success_(expect_request_success),
-      expect_scan_amount_found_(expect_scan_amount_found) {
+      expect_scan_amount_found_(expect_scan_amount_found),
+      internal_benchmark_mode_(internal_benchmark_mode) {
+  if (internal_benchmark_mode_) return;
   thread_ = std::thread(&Worker<DatabaseInterface>::WorkerMain, this);
 }
 
 template <class DatabaseInterface>
 inline Worker<DatabaseInterface>::~Worker() {
+  if (internal_benchmark_mode_) return;
   Wait();
   if (thread_.joinable()) {
     thread_.join();
@@ -122,17 +132,29 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
     PinToCore(pin_to_core_.value());
   }
 
-  // Initialize state needed for the trace replay.
-  uint32_t read_xor = 0;
-  std::string value_out;
-  std::vector<std::pair<Request::Key, std::string>> scan_out;
-
   // Run any needed per-worker initialization.
   db_->InitializeWorker(std::this_thread::get_id());
 
   // Now ready to proceed; wait until we're told to start.
   ready_.store(true, std::memory_order_release);
   can_start_->Wait();
+
+  // Run the job.
+  WorkloadLoop();
+
+  // Notify others that we are done.
+  done_.Raise();
+
+  // Run any needed shutdown code.
+  db_->ShutdownWorker(std::this_thread::get_id());
+}
+
+template <class DatabaseInterface>
+inline void Worker<DatabaseInterface>::WorkloadLoop() {
+  // Initialize state needed for the replay.
+  uint32_t read_xor = 0;
+  std::string value_out;
+  std::vector<std::pair<Request::Key, std::string>> scan_out;
 
   // Run our trace slice.
   const size_t stop_before = offset_ + num_requests_;
@@ -152,9 +174,11 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
         const auto run_time = MeasurementHelper(
             [this, &req, &value_out, &read_xor, &succeeded]() {
               succeeded = db_->Read(req.key, &value_out);
-              // Force a read of the extracted value. We want to count this time
-              // against the read latency too.
-              read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
+              if (succeeded) {
+                // Force a read of the extracted value. We want to count this time
+                // against the read latency too.
+                read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
+              }
               return succeeded;
             },
             measure_latency);
@@ -208,10 +232,12 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
         const auto run_time = MeasurementHelper(
             [this, &req, &scan_out, &read_xor, &succeeded]() {
               succeeded = db_->Scan(req.key, req.scan_amount, &scan_out);
-              // Force a read of the first extracted value. We want to count
-              // this time against the read latency too.
-              read_xor ^= *reinterpret_cast<const uint32_t*>(
-                  scan_out.front().second.c_str());
+              if (succeeded && scan_out.size() > 0) {
+                // Force a read of the first extracted value. We want to count
+                // this time against the read latency too.
+                read_xor ^= *reinterpret_cast<const uint32_t*>(
+                    scan_out.front().second.c_str());
+              }
             },
             measure_latency);
         size_t scanned_bytes = 0;
@@ -235,15 +261,13 @@ inline void Worker<DatabaseInterface>::WorkerMain() {
         throw std::runtime_error("Unrecognized request operation!");
     }
   }
-
   // Used to prevent optimizing away reads.
   tracker_.SetReadXOR(read_xor);
+}
 
-  // Notify others that we are done.
-  done_.Raise();
-
-  // Run any needed shutdown code.
-  db_->ShutdownWorker(std::this_thread::get_id());
+template <class DatabaseInterface>
+inline void Worker<DatabaseInterface>::BM_WorkloadLoop() {
+  WorkloadLoop();
 }
 
 }  // namespace impl

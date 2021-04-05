@@ -5,7 +5,7 @@
 #include <optional>
 #include <vector>
 
-#include "../benchmark.h"
+#include "../benchmark_result.h"
 #include "../meter.h"
 
 namespace ycsbr {

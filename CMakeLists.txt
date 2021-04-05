@@ -13,11 +13,13 @@ set(srcdir include/ycsbr)
 target_sources(ycsbrunner
   INTERFACE
     ${srcdir}/impl/affinity.h
+    ${srcdir}/impl/benchmark_result-inl.h
     ${srcdir}/impl/benchmark-inl.h
     ${srcdir}/impl/flag.h
     ${srcdir}/impl/trace-inl.h
     ${srcdir}/impl/tracking.h
     ${srcdir}/impl/worker.h
+    ${srcdir}/benchmark_result.h
     ${srcdir}/benchmark.h
     ${srcdir}/db.h
     ${srcdir}/meter.h
