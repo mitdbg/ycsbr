@@ -1,7 +1,5 @@
 #pragma once
 
-#include <pthread.h>
-
 #include <atomic>
 #include <chrono>
 #include <optional>
@@ -11,6 +9,7 @@
 #include <vector>
 
 #include "../trace.h"
+#include "affinity.h"
 #include "flag.h"
 #include "tracking.h"
 
@@ -120,12 +119,7 @@ template <class DatabaseInterface>
 inline void Worker<DatabaseInterface>::WorkerMain() {
   // Pin the thread if asked.
   if (pin_to_core_.has_value()) {
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(pin_to_core_.value(), &cpuset);
-
-    pthread_t thread = pthread_self();
-    pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset);
+    PinToCore(pin_to_core_.value());
   }
 
   // Initialize state needed for the trace replay.
