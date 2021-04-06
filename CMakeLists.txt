@@ -15,6 +15,7 @@ target_sources(ycsbrunner
     ${srcdir}/impl/affinity.h
     ${srcdir}/impl/benchmark_result-inl.h
     ${srcdir}/impl/benchmark-inl.h
+    ${srcdir}/impl/executor.h
     ${srcdir}/impl/flag.h
     ${srcdir}/impl/session-inl.h
     ${srcdir}/impl/thread_pool-inl.h
@@ -29,6 +30,7 @@ target_sources(ycsbrunner
     ${srcdir}/db.h
     ${srcdir}/meter.h
     ${srcdir}/request.h
+    ${srcdir}/run_options.h
     ${srcdir}/session.h
     ${srcdir}/trace.h
     ${srcdir}/ycsbr.h)

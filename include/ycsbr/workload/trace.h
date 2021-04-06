@@ -22,16 +22,14 @@ class TraceWorkload {
 class TraceWorkload::Producer {
  public:
   bool HasNext() const { return index_ < stop_before_; }
-  Request Next() {
-    Request req = (*trace_)[index_];
-    ++index_;
-    return req;
-  }
+  Request Next() { return (*trace_)[index_++]; }
 
  private:
   friend class TraceWorkload;
   Producer(const Trace* trace, size_t start_index, size_t num_requests)
-      : index_(start_index), stop_before_(start_index + num_requests) {}
+      : trace_(trace),
+        index_(start_index),
+        stop_before_(start_index + num_requests) {}
   const Trace* trace_;
   size_t index_;
   size_t stop_before_;

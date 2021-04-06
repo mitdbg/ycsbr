@@ -23,9 +23,9 @@ TEST_F(TraceReplayA, SessionSimpleRun) {
   session.Terminate();
   ASSERT_EQ(session.db().initialize_calls, 1);
   ASSERT_EQ(session.db().shutdown_worker_calls, 1);
-  // ASSERT_TRUE(session.db().read_calls > 0);
-  // ASSERT_TRUE(session.db().update_calls > 0);
-  // ASSERT_EQ(session.db().read_calls + session.db().update_calls, kTraceSize);
+  ASSERT_TRUE(session.db().read_calls > 0);
+  ASSERT_TRUE(session.db().update_calls > 0);
+  ASSERT_EQ(session.db().read_calls + session.db().update_calls, kTraceSize);
 }
 
 TEST_F(TraceLoadA, SessionBulkLoad) {

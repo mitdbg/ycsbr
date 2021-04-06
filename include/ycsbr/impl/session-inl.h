@@ -1,9 +1,11 @@
 #include <cassert>
 #include <chrono>
+#include <memory>
 #include <thread>
 
 #include "../meter.h"
 #include "../workload/trace.h"
+#include "executor.h"
 
 namespace ycsbr {
 
@@ -84,9 +86,43 @@ template <class DatabaseInterface>
 template <class CustomWorkload>
 inline BenchmarkResult Session<DatabaseInterface>::RunWorkload(
     const CustomWorkload& workload, const RunOptions& options) {
+  using Runner =
+      impl::Executor<DatabaseInterface, typename CustomWorkload::Producer>;
+
   auto producers = workload.GetProducers(num_threads_);
-  assert(producers.size() == num_threads);
-  return BenchmarkResult(std::chrono::nanoseconds(0));
+  assert(producers.size() == num_threads_);
+
+  impl::Flag can_start;
+  std::vector<std::unique_ptr<Runner>> executors;
+  executors.reserve(num_threads_);
+  for (auto& producer : producers) {
+    executors.push_back(std::make_unique<Runner>(&db_, producer,
+                                                 &can_start, options));
+    threads_->SubmitNoWait([exec = executors.back().get()]() { (*exec)(); });
+  }
+
+  // Busy wait for the executors to start up.
+  for (const auto& executor : executors) {
+    while (!executor->IsReady()) {
+    }
+  }
+
+  // Start the workload and the timer.
+  const auto start = std::chrono::steady_clock::now();
+  can_start.Raise();
+  for (auto& executor : executors) {
+    executor->Wait();
+  }
+  const auto end = std::chrono::steady_clock::now();
+
+  // Retrieve the results.
+  std::vector<impl::MetricsTracker> results;
+  results.reserve(num_threads_);
+  for (auto& executor : executors) {
+    results.emplace_back(std::move(*executor).GetResults());
+  }
+
+  return impl::MetricsTracker::FinalizeGroup(end - start, std::move(results));
 }
 
 }  // namespace ycsbr
