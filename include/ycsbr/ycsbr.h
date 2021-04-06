@@ -7,3 +7,6 @@
 #include "request.h"
 #include "session.h"
 #include "trace.h"
+
+#include "workload/trace.h"
+#include "workload/workload.h"

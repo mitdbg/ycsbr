@@ -9,6 +9,25 @@
 
 namespace ycsbr {
 
+// Options used to configure Session-based trace replays and workload runs.
+struct RunOptions {
+  // Used to configure latency sampling. Sampling is done by individual workers,
+  // and all workers will share the same sampling configuration. If this is set
+  // to 1, a worker will measure the latency of all of its requests. If set to
+  // some value `n`, a worker will measure every `n`-th request's latency.
+  size_t latency_sample_period = 10;
+
+  // If set to true, the benchmark will fail if any request fails. This should
+  // only be used if you expect all requests to succeed (e.g., there are no
+  // negative lookups and no updates of non-existent keys).
+  bool expect_request_success = false;
+
+  // If set to true, the benchmark will fail if any scan requests return fewer
+  // (or more) records than requested. This should only be used if you expect
+  // all scan amounts to be "valid".
+  bool expect_scan_amount_found = false;
+};
+
 template <class DatabaseInterface>
 class Session {
  public:
@@ -36,22 +55,22 @@ class Session {
 
   // Replays the provided bulk load trace. Note that bulk loads always run on
   // one thread.
-  // REQUIRES: `InitializeDatabase()` was called.
-  BenchmarkResult ReplayBulkLoadTrace(const BulkLoadTrace& load) const;
+  BenchmarkResult ReplayBulkLoadTrace(const BulkLoadTrace& load);
 
   // Replays the provided trace. The trace's requests will be split among all
   // the worker threads.
-  // REQUIRES: `InitializeDatabase()` was called.
-  BenchmarkResult ReplayTrace(const Trace& trace) const;
+  BenchmarkResult ReplayTrace(const Trace& trace,
+                              const RunOptions& options = RunOptions());
 
   // Runs a custom workload against the database.
-  // REQUIRES: `InitializeDatabase()` was called.
   template <class CustomWorkload>
-  BenchmarkResult RunWorkload(const CustomWorkload& workload) const;
+  BenchmarkResult RunWorkload(const CustomWorkload& workload,
+                              const RunOptions& options = RunOptions());
 
  private:
   DatabaseInterface db_;
   std::unique_ptr<impl::ThreadPool> threads_;
+  size_t num_threads_;
 };
 
 }  // namespace ycsbr
