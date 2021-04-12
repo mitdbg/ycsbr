@@ -22,7 +22,6 @@ target_sources(ycsbrunner
     ${srcdir}/impl/thread_pool.h
     ${srcdir}/impl/trace-inl.h
     ${srcdir}/impl/tracking.h
-    ${srcdir}/impl/worker.h
     ${srcdir}/workload/trace.h
     ${srcdir}/workload/workload.h
     ${srcdir}/benchmark_result.h

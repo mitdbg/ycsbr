@@ -7,7 +7,6 @@
 #include "ycsbr/benchmark.h"
 #include "ycsbr/impl/executor.h"
 #include "ycsbr/impl/flag.h"
-#include "ycsbr/impl/worker.h"
 #include "ycsbr/request.h"
 #include "ycsbr/run_options.h"
 #include "ycsbr/session.h"
@@ -67,30 +66,6 @@ class SimpleWorkload {
  private:
   size_t num_requests_;
 };
-
-template <WorkloadType Type>
-void BM_WorkerLoopOverhead(benchmark::State& state) {
-  const std::filesystem::path trace_file = CreateWorkloadFile<Type>();
-  NoOpInterface db;
-  impl::Flag can_start;
-  Trace::Options options;
-  options.value_size = 16;
-  const Trace trace = Trace::LoadFromFile(trace_file.string(), options);
-  std::unique_ptr<impl::Worker<NoOpInterface>> worker =
-      std::make_unique<impl::Worker<NoOpInterface>>(
-          &db, &trace, 0, kTraceSize, &can_start, std::optional<unsigned>(),
-          /*latency_sample_period=*/state.range(0), false, false,
-          /*internal_benchmark_mode=*/true);
-  for (auto _ : state) {
-    worker->BM_WorkloadLoop();
-  }
-  const size_t requests_processed = kTraceSize * state.iterations();
-  state.SetItemsProcessed(requests_processed);
-  state.counters["PerRequestLatency"] =
-      benchmark::Counter(requests_processed, benchmark::Counter::kIsRate |
-                                                 benchmark::Counter::kInvert);
-  std::filesystem::remove(trace_file);
-}
 
 template <WorkloadType Type>
 void BM_SimpleInterfaceOverhead(benchmark::State& state) {
@@ -181,36 +156,12 @@ void BM_SessionWorkloadOverhead(benchmark::State& state) {
         result.RunTime<std::chrono::duration<double>>().count());
   }
 
-  const size_t requests_processed = 10000 * state.iterations();
+  const size_t requests_processed = workload_length * state.iterations();
   state.SetItemsProcessed(requests_processed);
   state.counters["PerRequestLatency"] =
       benchmark::Counter(requests_processed, benchmark::Counter::kIsRate |
                                                  benchmark::Counter::kInvert);
 }
-
-BENCHMARK_TEMPLATE(BM_WorkerLoopOverhead, WorkloadType::kLoadA)
-    ->Arg(1)
-    ->Arg(5)
-    ->Arg(10)
-    ->Arg(20)
-    ->Arg(30)
-    ->UseRealTime();
-
-BENCHMARK_TEMPLATE(BM_WorkerLoopOverhead, WorkloadType::kRunA)
-    ->Arg(1)
-    ->Arg(5)
-    ->Arg(10)
-    ->Arg(20)
-    ->Arg(30)
-    ->UseRealTime();
-
-BENCHMARK_TEMPLATE(BM_WorkerLoopOverhead, WorkloadType::kRunE)
-    ->Arg(1)
-    ->Arg(5)
-    ->Arg(10)
-    ->Arg(20)
-    ->Arg(30)
-    ->UseRealTime();
 
 BENCHMARK_TEMPLATE(BM_SimpleInterfaceOverhead, WorkloadType::kRunA)
     ->Arg(1)
@@ -222,24 +173,18 @@ BENCHMARK_TEMPLATE(BM_SimpleInterfaceOverhead, WorkloadType::kRunA)
 
 BENCHMARK_TEMPLATE(BM_ExecutorLoopOverhead, WorkloadType::kLoadA)
     ->Arg(1)
-    ->Arg(5)
-    ->Arg(10)
     ->Arg(20)
     ->Arg(30)
     ->UseRealTime();
 
 BENCHMARK_TEMPLATE(BM_ExecutorLoopOverhead, WorkloadType::kRunA)
     ->Arg(1)
-    ->Arg(5)
-    ->Arg(10)
     ->Arg(20)
     ->Arg(30)
     ->UseRealTime();
 
 BENCHMARK_TEMPLATE(BM_ExecutorLoopOverhead, WorkloadType::kRunE)
     ->Arg(1)
-    ->Arg(5)
-    ->Arg(10)
     ->Arg(20)
     ->Arg(30)
     ->UseRealTime();
@@ -255,6 +200,8 @@ BENCHMARK_TEMPLATE(BM_SessionTraceReplayOverhead, WorkloadType::kRunA)
 BENCHMARK(BM_SessionWorkloadOverhead)
     ->Args({500, 1000})  // (latency_sample_period, workload_length)
     ->Args({1000, 10000})
+    ->Args({10000, 100000})
+    ->Args({10000, 1000000})
     ->UseManualTime();
 
 }  // namespace
