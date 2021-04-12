@@ -22,16 +22,23 @@ class Session {
   Session(size_t num_threads,
           const std::vector<size_t>& core_map = std::vector<size_t>());
 
-  // Calls `DatabaseInterface::DeleteDatabase()` and then terminates the worker
-  // threads. All worker threads will call `DatabaseInterface::ShutdownWorker()`
-  // before terminating. Once a session has been terminated, it cannot be
-  // restarted.
+  // Calls `DatabaseInterface::InitializeDatabase()` on a single worker thread.
+  // This must be called before any of the Replay/Run methods. This method
+  // should also only be called at most once.
+  void Initialize();
+
+  // If `Initialize()` was called, `DatabaseInterface::DeleteDatabase()` will be
+  // called. Then, this method terminates the worker threads. All worker threads
+  // will call `DatabaseInterface::ShutdownWorker()` before terminating. Once a
+  // session has been terminated, it cannot be restarted.
   void Terminate();
 
   ~Session();
   Session(Session&&) = default;
   Session& operator=(Session&&) = default;
 
+  // Retrieve the underlying `DatabaseInterface` for use (e.g., calling custom
+  // methods).
   DatabaseInterface& db();
   const DatabaseInterface& db() const;
 
@@ -53,6 +60,7 @@ class Session {
   DatabaseInterface db_;
   std::unique_ptr<impl::ThreadPool> threads_;
   size_t num_threads_;
+  bool initialized_;
 };
 
 }  // namespace ycsbr

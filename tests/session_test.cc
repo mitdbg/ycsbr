@@ -11,6 +11,7 @@ using namespace ycsbr;
 
 TEST_F(TraceReplayA, SessionSimpleTest) {
   Session<TestDatabaseInterface> session(1);
+  session.Initialize();
   session.Terminate();
   ASSERT_EQ(session.db().initialize_calls, 1);
   ASSERT_EQ(session.db().shutdown_worker_calls, 1);
@@ -19,6 +20,7 @@ TEST_F(TraceReplayA, SessionSimpleTest) {
 TEST_F(TraceReplayA, SessionSimpleRun) {
   const Trace trace = Trace::LoadFromFile(trace_file, Trace::Options());
   Session<TestDatabaseInterface> session(1);
+  session.Initialize();
   const BenchmarkResult result = session.ReplayTrace(trace);
   session.Terminate();
   ASSERT_EQ(session.db().initialize_calls, 1);
@@ -31,12 +33,17 @@ TEST_F(TraceReplayA, SessionSimpleRun) {
 TEST_F(TraceLoadA, SessionBulkLoad) {
   const BulkLoadTrace load = BulkLoadTrace::LoadFromFile(trace_file, Trace::Options());
   Session<TestDatabaseInterface> session(1);
+  session.Initialize();
   const auto result = session.ReplayBulkLoadTrace(load);
   session.Terminate();
   ASSERT_EQ(session.db().initialize_calls, 1);
   ASSERT_EQ(session.db().shutdown_worker_calls, 1);
   ASSERT_EQ(session.db().bulk_load_calls, 1);
   ASSERT_TRUE(result.RunTime<std::chrono::nanoseconds>().count() > 0);
+}
+
+TEST(SessionTest, NoThreads) {
+  ASSERT_THROW(Session<TestDatabaseInterface> session(0), std::invalid_argument);
 }
 
 }  // namespace

@@ -1,3 +1,4 @@
+#include <chrono>
 #include <filesystem>
 #include <memory>
 
@@ -98,12 +99,11 @@ void BM_SimpleInterfaceOverhead(benchmark::State& state) {
   options.value_size = 16;
   const Trace trace = Trace::LoadFromFile(trace_file.string(), options);
 
-  NoOpInterface db;
-  BenchmarkOptions boptions;
+  BenchmarkOptions<NoOpInterface> boptions;
   boptions.latency_sample_period = state.range(0);
   for (auto _ : state) {
     const auto result =
-        ReplayTrace<NoOpInterface>(db, trace, nullptr, boptions);
+        ReplayTrace<NoOpInterface>(trace, nullptr, boptions);
     state.SetIterationTime(
         result.RunTime<std::chrono::duration<double>>().count());
   }

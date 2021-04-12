@@ -1,6 +1,7 @@
 #include <cassert>
 #include <chrono>
 #include <memory>
+#include <stdexcept>
 #include <thread>
 
 #include "../meter.h"
@@ -29,8 +30,11 @@ inline Session<DatabaseInterface>::Session(size_t num_threads,
                          [this]() {
                            db_.ShutdownWorker(std::this_thread::get_id());
                          }))),
-      num_threads_(num_threads) {
-  threads_->Submit([this]() { db_.InitializeDatabase(); }).get();
+      num_threads_(num_threads),
+      initialized_(false) {
+  if (num_threads == 0) {
+    throw std::invalid_argument("Must use at least 1 thread.");
+  }
 }
 
 template <class DatabaseInterface>
@@ -39,9 +43,18 @@ inline Session<DatabaseInterface>::~Session() {
 }
 
 template <class DatabaseInterface>
+inline void Session<DatabaseInterface>::Initialize() {
+  if (initialized_ || threads_ == nullptr) return;
+  threads_->Submit([this]() { db_.InitializeDatabase(); }).get();
+  initialized_ = true;
+}
+
+template <class DatabaseInterface>
 inline void Session<DatabaseInterface>::Terminate() {
   if (threads_ == nullptr) return;
-  threads_->Submit([this]() { db_.DeleteDatabase(); }).get();
+  if (initialized_) {
+    threads_->Submit([this]() { db_.DeleteDatabase(); }).get();
+  }
   threads_.reset(nullptr);
 }
 
@@ -96,8 +109,8 @@ inline BenchmarkResult Session<DatabaseInterface>::RunWorkload(
   std::vector<std::unique_ptr<Runner>> executors;
   executors.reserve(num_threads_);
   for (auto& producer : producers) {
-    executors.push_back(std::make_unique<Runner>(&db_, producer,
-                                                 &can_start, options));
+    executors.push_back(
+        std::make_unique<Runner>(&db_, producer, &can_start, options));
     threads_->SubmitNoWait([exec = executors.back().get()]() { (*exec)(); });
   }
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <chrono>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -11,6 +11,7 @@
 
 namespace ycsbr {
 
+template <class DatabaseInterface>
 struct BenchmarkOptions {
   // Number of threads used to run the workload (must be at least 1). The
   // requests in the workload will be evenly divided among the worker threads.
@@ -21,7 +22,10 @@ struct BenchmarkOptions {
   // `pin_to_core_map[i]` must hold the core id that thread `i` should be pinned
   // to. If `pin_to_core_map` is not of size `num_threads`, the worker threads
   // will not be pinned to any cores.
-  std::vector<unsigned> pin_to_core_map;
+  std::vector<size_t> pin_to_core_map;
+
+  // Code to run before starting the benchmark (not included in the timing).
+  std::function<void(DatabaseInterface&)> pre_run_hook;
 
   // Used to configure latency sampling. Sampling is done by individual workers,
   // and all workers will share the same sampling configuration. If this is set
@@ -47,15 +51,18 @@ struct BenchmarkOptions {
 // calling `BulkLoad()` on the specified `DatabaseInterface`. The bulk load
 // always runs on a single thread.
 template <class DatabaseInterface>
-BenchmarkResult ReplayTrace(
-    DatabaseInterface& db, const Trace& trace,
-    const BulkLoadTrace* load = nullptr,
-    const BenchmarkOptions& options = BenchmarkOptions());
+BenchmarkResult ReplayTrace(const Trace& trace,
+                            const BulkLoadTrace* load = nullptr,
+                            const BenchmarkOptions<DatabaseInterface>& options =
+                                BenchmarkOptions<DatabaseInterface>());
 
 // Measures the time it takes to load the specified records using bulk load.
 // NOTE: The bulk load always runs on a single thread.
 template <class DatabaseInterface>
-BenchmarkResult ReplayTrace(DatabaseInterface& db, const BulkLoadTrace& load);
+BenchmarkResult ReplayTrace(
+    const BulkLoadTrace& load,
+    std::function<void(DatabaseInterface&)> pre_run_hook =
+        std::function<void(DatabaseInterface&)>());
 
 }  // namespace ycsbr
 
