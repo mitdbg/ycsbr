@@ -3,10 +3,10 @@
 
 #include "benchmark/benchmark.h"
 #include "workloads/create_workload.h"
+#include "ycsbr/benchmark.h"
 #include "ycsbr/impl/executor.h"
 #include "ycsbr/impl/flag.h"
 #include "ycsbr/impl/worker.h"
-#include "ycsbr/benchmark.h"
 #include "ycsbr/request.h"
 #include "ycsbr/run_options.h"
 #include "ycsbr/session.h"
@@ -49,10 +49,12 @@ class SimpleWorkload {
       ++index_;
       return Request();
     }
+
    private:
     size_t num_requests_;
     size_t index_;
   };
+
   std::vector<Producer> GetProducers(const size_t num_producers) const {
     std::vector<Producer> producers;
     for (size_t i = 0; i < num_producers; ++i) {
@@ -100,7 +102,8 @@ void BM_SimpleInterfaceOverhead(benchmark::State& state) {
   BenchmarkOptions boptions;
   boptions.latency_sample_period = state.range(0);
   for (auto _ : state) {
-    const auto result = ReplayTrace<NoOpInterface>(db, trace, nullptr, boptions);
+    const auto result =
+        ReplayTrace<NoOpInterface>(db, trace, nullptr, boptions);
     state.SetIterationTime(
         result.RunTime<std::chrono::duration<double>>().count());
   }
@@ -165,16 +168,20 @@ void BM_SessionTraceReplayOverhead(benchmark::State& state) {
 }
 
 void BM_SessionWorkloadOverhead(benchmark::State& state) {
+  const size_t latency_sample_period = state.range(0);
+  const size_t workload_length = state.range(1);
+
   Session<NoOpInterface> session(1);
   RunOptions roptions;
-  roptions.latency_sample_period = state.range(0);
+  roptions.latency_sample_period = latency_sample_period;
   for (auto _ : state) {
-    const auto result = session.RunWorkload<SimpleWorkload>(SimpleWorkload(1000), roptions);
+    const auto result = session.RunWorkload<SimpleWorkload>(
+        SimpleWorkload(workload_length), roptions);
     state.SetIterationTime(
         result.RunTime<std::chrono::duration<double>>().count());
   }
 
-  const size_t requests_processed = kTraceSize * state.iterations();
+  const size_t requests_processed = 10000 * state.iterations();
   state.SetItemsProcessed(requests_processed);
   state.counters["PerRequestLatency"] =
       benchmark::Counter(requests_processed, benchmark::Counter::kIsRate |
@@ -246,8 +253,8 @@ BENCHMARK_TEMPLATE(BM_SessionTraceReplayOverhead, WorkloadType::kRunA)
     ->UseManualTime();
 
 BENCHMARK(BM_SessionWorkloadOverhead)
-    ->Arg(100)
-    ->Arg(500)
+    ->Args({500, 1000})  // (latency_sample_period, workload_length)
+    ->Args({1000, 10000})
     ->UseManualTime();
 
 }  // namespace
