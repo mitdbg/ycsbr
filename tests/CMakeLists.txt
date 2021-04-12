@@ -19,10 +19,10 @@ add_executable(test_runner
   meter_test.cc
   session_test.cc
   workload_test.cc)
-target_link_libraries(test_runner PRIVATE ycsbrunner gtest gtest_main)
+target_link_libraries(test_runner PRIVATE ycsbr gtest gtest_main)
 
 add_executable(benchmark_runner overhead_benchmark.cc)
 target_link_libraries(benchmark_runner
   PRIVATE
-    ycsbrunner
+    ycsbr
     benchmark::benchmark_main)
