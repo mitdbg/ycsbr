@@ -38,7 +38,7 @@ class ExampleDatabaseInterface final {
 
   // Called once if `InitializeDatabase()` has been called.
   // Put any needed clean up code in here.
-  virtual void DeleteDatabase() = 0;
+  virtual void ShutdownDatabase() = 0;
 
   // Load the records into the database.
   virtual void BulkLoad(const BulkLoadTrace& load) = 0;

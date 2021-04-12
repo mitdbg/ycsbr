@@ -18,7 +18,7 @@ class TestDatabaseInterface {
     ++shutdown_worker_calls;
   }
   void InitializeDatabase() { ++initialize_calls; }
-  void DeleteDatabase() { ++delete_calls; }
+  void ShutdownDatabase() { ++shutdown_calls; }
 
   void BulkLoad(const BulkLoadTrace& load) { ++bulk_load_calls; }
 
@@ -49,7 +49,7 @@ class TestDatabaseInterface {
   }
 
   std::atomic<size_t> initialize_calls = 0;
-  std::atomic<size_t> delete_calls = 0;
+  std::atomic<size_t> shutdown_calls = 0;
   std::atomic<size_t> bulk_load_calls = 0;
   std::atomic<size_t> update_calls = 0;
   std::atomic<size_t> insert_calls = 0;

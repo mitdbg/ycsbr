@@ -53,7 +53,7 @@ template <class DatabaseInterface>
 inline void Session<DatabaseInterface>::Terminate() {
   if (threads_ == nullptr) return;
   if (initialized_) {
-    threads_->Submit([this]() { db_.DeleteDatabase(); }).get();
+    threads_->Submit([this]() { db_.ShutdownDatabase(); }).get();
   }
   threads_.reset(nullptr);
 }

@@ -26,7 +26,7 @@ TEST_F(TraceLoadA, BenchBulkLoad) {
   ASSERT_EQ(session.db().initialize_worker_calls, 1);
   ASSERT_EQ(session.db().shutdown_worker_calls, 1);
   ASSERT_EQ(session.db().initialize_calls, 1);
-  ASSERT_EQ(session.db().delete_calls, 1);
+  ASSERT_EQ(session.db().shutdown_calls, 1);
   ASSERT_EQ(session.db().bulk_load_calls, 1);
   ASSERT_EQ(session.db().insert_calls, 0);
   ASSERT_EQ(session.db().update_calls, 0);
@@ -53,7 +53,7 @@ TEST_F(TraceLoadA, BenchLoadRunA) {
   ASSERT_EQ(session.db().initialize_worker_calls, 1);
   ASSERT_EQ(session.db().shutdown_worker_calls, 1);
   ASSERT_EQ(session.db().initialize_calls, 1);
-  ASSERT_EQ(session.db().delete_calls, 1);
+  ASSERT_EQ(session.db().shutdown_calls, 1);
   ASSERT_EQ(session.db().bulk_load_calls, 1);
   ASSERT_EQ(session.db().insert_calls, trace_size);
   ASSERT_EQ(session.db().update_calls, 0);
@@ -87,7 +87,7 @@ TEST_F(TraceReplayE, BenchRunE) {
   ASSERT_EQ(session.db().initialize_worker_calls, 1);
   ASSERT_EQ(session.db().shutdown_worker_calls, 1);
   ASSERT_EQ(session.db().initialize_calls, 1);
-  ASSERT_EQ(session.db().delete_calls, 1);
+  ASSERT_EQ(session.db().shutdown_calls, 1);
   ASSERT_EQ(session.db().bulk_load_calls, 0);
   ASSERT_TRUE(session.db().insert_calls > 0);
   ASSERT_EQ(session.db().update_calls, 0);
@@ -107,7 +107,7 @@ TEST_F(TraceReplayA, MultithreadedRun) {
   ASSERT_EQ(session.db().initialize_worker_calls, 5);
   ASSERT_EQ(session.db().shutdown_worker_calls, 5);
   ASSERT_EQ(session.db().initialize_calls, 1);
-  ASSERT_EQ(session.db().delete_calls, 1);
+  ASSERT_EQ(session.db().shutdown_calls, 1);
   ASSERT_EQ(session.db().bulk_load_calls, 0);
   ASSERT_EQ(session.db().insert_calls, 0);
   ASSERT_TRUE(session.db().update_calls > 0);
