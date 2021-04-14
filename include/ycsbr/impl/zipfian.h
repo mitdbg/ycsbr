@@ -65,8 +65,8 @@ inline size_t Zipfian::operator()() {
   const double uz = u * zeta_n_;
   if (uz < 1.0) return 0;
   if (uz < thres_) return 1;
-  return static_cast<size_t>(
-      (item_count_)*std::pow(eta_ * u - eta_ + 1, alpha_));
+  return static_cast<size_t>(item_count_ *
+                             std::pow(eta_ * u - eta_ + 1, alpha_));
 }
 
 inline void Zipfian::IncreaseItemCount(const size_t new_item_count) {

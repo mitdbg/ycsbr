@@ -1,5 +1,3 @@
-#include <iostream>
-
 #include "ycsbr/impl/zipfian.h"
 #include "gtest/gtest.h"
 
