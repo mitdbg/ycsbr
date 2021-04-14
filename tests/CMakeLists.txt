@@ -18,7 +18,8 @@ add_executable(test_runner
   benchmark_test.cc
   meter_test.cc
   session_test.cc
-  workload_test.cc)
+  workload_test.cc
+  zipfian_test.cc)
 target_link_libraries(test_runner PRIVATE ycsbr gtest gtest_main)
 
 add_executable(benchmark_runner overhead_benchmark.cc generator_benchmark.cc)

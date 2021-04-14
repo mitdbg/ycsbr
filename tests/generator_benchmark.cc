@@ -1,9 +1,11 @@
+#include <cmath>
 #include <limits>
 #include <vector>
 #include <random>
 
 #include "benchmark/benchmark.h"
 #include "ycsbr/impl/util.h"
+#include "ycsbr/impl/zipfian.h"
 
 namespace {
 
@@ -66,8 +68,38 @@ void BM_UniformDist(benchmark::State& state) {
       num_values, benchmark::Counter::kIsRate | benchmark::Counter::kInvert);
 }
 
+void BM_MathPow(benchmark::State& state) {
+  constexpr double exponent = 0.8;
+  std::vector<double> values;
+  values.reserve(state.range(0));
+  for (uint64_t i = 0; i < state.range(0); ++i) {
+    values.push_back(i);
+  }
+
+  for (auto _ : state) {
+    for (size_t i = 0; i < values.size(); ++i) {
+      values[i] = std::pow(values[i], exponent);
+    }
+  }
+
+  const size_t num_values = state.range(0) * state.iterations();
+  state.SetItemsProcessed(num_values);
+  state.counters["PerNumLatency"] = benchmark::Counter(
+      num_values, benchmark::Counter::kIsRate | benchmark::Counter::kInvert);
+}
+
+void BM_ZipfianGen(benchmark::State& state) {
+  const size_t item_count = state.range(0);
+  Zipfian zipf(item_count, 0.99, /*seed=*/42);
+  for (auto _ : state) {
+    benchmark::DoNotOptimize(zipf());
+  }
+}
+
 BENCHMARK(BM_FNVHash64)->Arg(10000);
 BENCHMARK(BM_MersenneTwister)->Arg(10000);
 BENCHMARK(BM_UniformDist)->Arg(10000);
+BENCHMARK(BM_MathPow)->Arg(10000);
+BENCHMARK(BM_ZipfianGen)->Arg(10000000);
 
 }  // namespace
