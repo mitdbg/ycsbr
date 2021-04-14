@@ -21,7 +21,7 @@ add_executable(test_runner
   workload_test.cc)
 target_link_libraries(test_runner PRIVATE ycsbr gtest gtest_main)
 
-add_executable(benchmark_runner overhead_benchmark.cc)
+add_executable(benchmark_runner overhead_benchmark.cc generator_benchmark.cc)
 target_link_libraries(benchmark_runner
   PRIVATE
     ycsbr

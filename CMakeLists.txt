@@ -22,6 +22,7 @@ target_sources(ycsbr
     ${srcdir}/impl/thread_pool.h
     ${srcdir}/impl/trace-inl.h
     ${srcdir}/impl/tracking.h
+    ${srcdir}/impl/util.h
     ${srcdir}/workload/trace.h
     ${srcdir}/workload/workload.h
     ${srcdir}/benchmark_result.h
