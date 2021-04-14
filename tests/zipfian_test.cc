@@ -1,9 +1,9 @@
-#include "ycsbr/impl/zipfian.h"
+#include "ycsbr/gen/zipfian.h"
 #include "gtest/gtest.h"
 
 namespace {
 
-using namespace ycsbr::impl;
+using namespace ycsbr::gen;
 
 TEST(ZipfianTest, Simple) {
   constexpr size_t item_count = 1000000;

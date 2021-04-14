@@ -6,7 +6,7 @@
 #include <random>
 
 namespace ycsbr {
-namespace impl {
+namespace gen {
 
 // Returns Zipfian-distributed values in the range [0, item_count). This
 // implementation is based on the YCSB driver's Zipfian implementation, which in
@@ -97,5 +97,5 @@ inline void Zipfian::UpdateComputedConstants(const size_t prev_item_count,
          (1.0 - zeta2theta_ / zeta_n_);
 }
 
-}  // namespace impl
+}  // namespace gen
 }  // namespace ycsbr

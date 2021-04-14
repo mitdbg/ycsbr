@@ -4,12 +4,12 @@
 #include <random>
 
 #include "benchmark/benchmark.h"
-#include "ycsbr/impl/util.h"
-#include "ycsbr/impl/zipfian.h"
+#include "ycsbr/gen/util.h"
+#include "ycsbr/gen/zipfian.h"
 
 namespace {
 
-using namespace ycsbr::impl;
+using namespace ycsbr::gen;
 
 void BM_FNVHash64(benchmark::State& state) {
   std::vector<uint64_t> values;

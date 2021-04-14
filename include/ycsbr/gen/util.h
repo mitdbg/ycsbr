@@ -3,7 +3,7 @@
 #include <cstdint>
 
 namespace ycsbr {
-namespace impl {
+namespace gen {
 
 inline constexpr uint64_t kFNVOffsetBasis64 = 0xCBF29CE484222325ULL;
 inline constexpr uint64_t kFNVPrime64 = 1099511628211ULL;
@@ -23,5 +23,5 @@ inline uint64_t FNVHash64(uint64_t val) {
   return hashval;
 }
 
-}  // namespace impl
+}  // namespace gen
 }  // namespace ycsbr
