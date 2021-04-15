@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "ycsbr/gen/config.h"
 #include "ycsbr/gen/phase.h"
 #include "ycsbr/request.h"
 #include "ycsbr/workload/trace.h"
@@ -22,8 +23,11 @@ class PhasedWorkload {
   class Producer;
   std::vector<Producer> GetProducers(size_t num_producers) const;
 
+  // Not intended to be used directly. Use `LoadFrom()` instead.
+  PhasedWorkload(std::unique_ptr<WorkloadConfig> config);
+
  private:
-  PhasedWorkload();
+  std::unique_ptr<WorkloadConfig> config_;
   std::vector<Request::Key> load_keys_;
 };
 
