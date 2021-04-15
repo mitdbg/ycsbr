@@ -1,8 +1,10 @@
 #pragma once
 
-#include <vector>
+#include <cstdint>
 #include <memory>
+#include <vector>
 
+#include "ycsbr/gen/phase.h"
 #include "ycsbr/request.h"
 #include "ycsbr/workload/trace.h"
 
@@ -11,7 +13,8 @@ namespace gen {
 
 class PhasedWorkload {
  public:
-  static std::shared_ptr<PhasedWorkload> LoadFrom(const std::filesystem::path& config_file);
+  static std::shared_ptr<PhasedWorkload> LoadFrom(
+      const std::filesystem::path& config_file);
 
   BulkLoadTrace GetLoadTrace();
 
@@ -23,8 +26,21 @@ class PhasedWorkload {
 };
 
 class PhasedWorkload::Producer {
+ public:
+  void Prepare();
+
+  bool HasNext() const {
+    return current_phase_ < phases_.size() && phases_[current_phase_].HasNext();
+  }
+  Request Next();
+
  private:
   std::shared_ptr<PhasedWorkload> workload_;
+
+  std::vector<Phase> phases_;
+  uint8_t current_phase_;
+
+  // Stores all the keys this producer will eventually insert.
   std::vector<Request::Key> insert_keys_;
   size_t next_insert_key_index_;
 };
