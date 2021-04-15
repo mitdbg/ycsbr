@@ -43,6 +43,7 @@ if(YR_BUILD_GENERATOR)
     PUBLIC
       ${srcdir}/gen/chooser.h
       ${srcdir}/gen/config.h
+      ${srcdir}/gen/keygen.h
       ${srcdir}/gen/phase.h
       ${srcdir}/gen/types.h
       ${srcdir}/gen/util.h
