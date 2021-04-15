@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -19,9 +20,10 @@ class PhasedWorkload {
   BulkLoadTrace GetLoadTrace();
 
   class Producer;
-  std::vector<Producer> GetProducers() const;
+  std::vector<Producer> GetProducers(size_t num_producers) const;
 
  private:
+  PhasedWorkload();
   std::vector<Request::Key> load_keys_;
 };
 

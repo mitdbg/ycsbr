@@ -41,6 +41,9 @@ if(YR_BUILD_GENERATOR)
   add_library(ycsbr-gen)
   target_sources(ycsbr-gen
     PUBLIC
+      ${srcdir}/gen/chooser.h
+      ${srcdir}/gen/phase.h
+      ${srcdir}/gen/types.h
       ${srcdir}/gen/util.h
       ${srcdir}/gen/zipfian.h)
   target_link_libraries(ycsbr-gen PUBLIC ycsbr)
