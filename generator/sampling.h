@@ -27,6 +27,13 @@ template <typename T, class RNG>
 void FisherYatesSample(size_t num_samples, T range_min, T range_max,
                        std::vector<T>* dest, size_t start_index, RNG& rng);
 
+// Selects which of the above sampling algorithms to run (for performance
+// reasons) using heuristics based on the input parameters.
+template <typename T, class RNG>
+void SampleWithoutReplacement(size_t num_samples, T range_min, T range_max,
+                              std::vector<T>* dest, size_t start_index,
+                              RNG& rng);
+
 }  // namespace gen
 }  // namespace ycsbr
 

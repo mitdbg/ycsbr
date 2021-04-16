@@ -1,8 +1,8 @@
 #include <cassert>
 #include <limits>
 #include <random>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace ycsbr {
 namespace gen {
@@ -87,6 +87,24 @@ void FisherYatesSample(const size_t num_samples, const T range_min,
     } else {
       swapped_indices[to_swap_idx] = curr_it->second;
     }
+  }
+}
+
+template <typename T, class RNG>
+void SampleWithoutReplacement(const size_t num_samples, const T range_min,
+                              const T range_max, std::vector<T>* dest,
+                              const size_t start_index, RNG& rng) {
+  constexpr double floyd_selectivity_threshold = 0.05;
+  assert(range_min <= range_min);
+  assert(range_max - range_min >= num_samples);
+  const size_t interval = range_max - range_min + 1;
+  const double selectivity = static_cast<double>(num_samples) / interval;
+  if (selectivity <= floyd_selectivity_threshold) {
+    FloydSample<T, RNG>(num_samples, range_min, range_max, dest, start_index,
+                        rng);
+  } else {
+    SelectionSample<T, RNG>(num_samples, range_min, range_max, dest,
+                            start_index, rng);
   }
 }
 
