@@ -28,3 +28,8 @@ target_link_libraries(benchmark_runner
   PRIVATE
     ycsbr-gen
     benchmark::benchmark_main)
+
+# A manual test executable that parses a workload config file and prints out
+# the workload requests.
+add_executable(generator_echo generator_echo.cc)
+target_link_libraries(generator_echo PRIVATE ycsbr-gen)

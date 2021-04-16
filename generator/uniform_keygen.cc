@@ -13,8 +13,10 @@ namespace gen {
 UniformGenerator::UniformGenerator(size_t num_keys, Request::Key range_min,
                                    Request::Key range_max)
     : num_keys_(num_keys), range_min_(range_min), range_max_(range_max) {
-  assert(range_min_ <= range_max_);
-  assert(range_max_ - range_min_ + 1 >= num_keys_);
+  if ((range_min_ > range_max_) || (range_max_ - range_min_ + 1 < num_keys_)) {
+    throw std::invalid_argument(
+        "UniformGenerator: Range is invalid or too small.");
+  }
 }
 
 void UniformGenerator::Generate(std::mt19937& prng,
