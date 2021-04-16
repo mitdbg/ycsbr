@@ -8,19 +8,27 @@
 namespace ycsbr {
 namespace gen {
 
-class Phase {
- public:
-  bool HasNext() const { return num_operations_left_ > 0; }
+// Tracks the current state of a workload phase.
+// This is meant for internal use only.
+struct Phase {
+  Phase()
+      : num_inserts(0),
+        num_total_requests(0),
+        num_requests_left(0),
+        read_thres(0),
+        scan_thres(0),
+        update_thres(0) {}
 
- private:
-  size_t num_inserts_;
-  size_t num_total_operations_;
-  size_t num_operations_left_;
+  bool HasNext() const { return num_requests_left > 0; }
 
-  uint32_t read_thres_, scan_thres_, update_thres_;
-  std::unique_ptr<Chooser> read_chooser_;
-  std::unique_ptr<Chooser> scan_chooser_;
-  std::unique_ptr<Chooser> update_chooser_;
+  size_t num_inserts;
+  size_t num_total_requests;
+  size_t num_requests_left;
+
+  uint32_t read_thres, scan_thres, update_thres;
+  std::unique_ptr<Chooser> read_chooser;
+  std::unique_ptr<Chooser> scan_chooser;
+  std::unique_ptr<Chooser> update_chooser;
 };
 
 }  // namespace gen

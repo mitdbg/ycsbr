@@ -1,19 +1,54 @@
 #include "config_impl.h"
 
 #include <iostream>
+#include <stdexcept>
 
+#include "uniform_keygen.h"
 #include "yaml-cpp/yaml.h"
 
 namespace {
 
+// Top-level keys.
 const std::string kLoadConfigKey = "load";
 const std::string kRunConfigKey = "run";
+const std::string kRecordSizeBytesKey = "record_size_bytes";
+
+// Operation keys.
+const std::string kReadOpKey = "read";
+const std::string kScanOpKey = "scan";
+const std::string kUpdateOpKey = "update";
+const std::string kInsertOpKey = "insert";
+
+// Assorted keys.
+const std::string kNumRecordsKey = "num_records";
+const std::string kNumRequestsKey = "num_requests";
+const std::string kDistributionKey = "distribution";
+const std::string kDistributionTypeKey = "type";
+const std::string kProportionKey = "proportion_pct";
+const std::string kScanMaxLengthKey = "max_length";
+
+// Distribution names and keys.
+const std::string kUniformDist = "uniform";
+const std::string kZipfianDist = "zipfian";
+const std::string kHotspotDist = "hotspot";
+
+const std::string kRangeMinKey = "range_min";
+const std::string kRangeMaxKey = "range_max";
+const std::string kZipfianThetaKey = "theta";
+const std::string kHotspotProportionKey = "hot_proportion_pct";
+const std::string kHotRangeMinKey = "hot_range_min";
+const std::string kHotRangeMaxKey = "hot_range_max";
 
 // Only does a quick high-level structural validation. The semantic validation
 // is done when phases are retrieved.
 bool ValidateConfig(const YAML::Node& raw_config) {
   if (!raw_config.IsMap()) {
     std::cerr << "ERROR: Workload config needs to be a YAML map." << std::endl;
+    return false;
+  }
+  if (!raw_config[kRecordSizeBytesKey]) {
+    std::cerr << "ERROR: Missing workload config '" << kRecordSizeBytesKey
+              << "' value." << std::endl;
     return false;
   }
   if (!raw_config[kLoadConfigKey]) {
@@ -53,27 +88,56 @@ std::unique_ptr<WorkloadConfig> WorkloadConfig::LoadFrom(
   try {
     YAML::Node node = YAML::LoadFile(config_file);
     if (!ValidateConfig(node)) {
-      return nullptr;
+      throw std::invalid_argument("Invalid workload configuration file.");
     }
     return std::make_unique<WorkloadConfigImpl>(std::move(node));
-
   } catch (const YAML::BadFile&) {
-    return nullptr;
+    throw std::invalid_argument(
+        "Could not parse the workload configuration file.");
   }
 }
 
 WorkloadConfigImpl::WorkloadConfigImpl(YAML::Node raw_config)
     : raw_config_(std::move(raw_config)) {}
 
-size_t WorkloadConfigImpl::GetNumLoadRecords() const { return 0; }
-
-std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
-  return nullptr;
+size_t WorkloadConfigImpl::GetNumLoadRecords() const {
+  return raw_config_[kLoadConfigKey][kNumRecordsKey].as<size_t>();
 }
 
-size_t WorkloadConfigImpl::GetNumPhases() const { return 0; }
+size_t WorkloadConfigImpl::GetRecordSizeBytes() const {
+  return raw_config_[kRecordSizeBytesKey].as<size_t>();
+}
 
-Phase WorkloadConfigImpl::GetPhase(size_t phase_id) const { return Phase(); }
+std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
+  const YAML::Node& load_dist = raw_config_[kLoadConfigKey][kDistributionKey];
+  if (!load_dist) {
+    throw std::invalid_argument("Missing load distribution configuration.");
+  }
+  const std::string dist_type =
+      load_dist[kDistributionTypeKey].as<std::string>();
+  if (dist_type == kUniformDist) {
+    const size_t num_records = GetNumLoadRecords();
+    const Request::Key range_min = load_dist[kRangeMinKey].as<Request::Key>();
+    const Request::Key range_max = load_dist[kRangeMaxKey].as<Request::Key>();
+    return std::make_unique<UniformGenerator>(num_records, range_min, range_max);
+
+  } else {
+    throw std::invalid_argument("Unsupported load distribution: " + dist_type);
+  }
+}
+
+size_t WorkloadConfigImpl::GetNumPhases() const {
+  return raw_config_[kRunConfigKey].size();
+}
+
+Phase WorkloadConfigImpl::GetPhase(PhaseID phase_id) const {
+  const YAML::Node& phase_config = raw_config_[kRunConfigKey][phase_id];
+  Phase phase;
+  phase.num_total_requests = phase_config[kNumRequestsKey].as<size_t>();
+  phase.num_requests_left = phase.num_total_requests;
+  // TODO: Compute thresholds and number of inserts needed.
+  return phase;
+}
 
 std::unique_ptr<Generator> WorkloadConfigImpl::GetPhaseGenerator(
     size_t phase_id) const {
