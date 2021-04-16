@@ -21,6 +21,12 @@ template <typename T, class RNG>
 void SelectionSample(size_t num_samples, T range_min, T range_max,
                      std::vector<T>* dest, size_t start_index, RNG& rng);
 
+// Sampling based on the Fisher-Yates shuffle algorithm. For more details, see:
+// https://en.wikipedia.org/wiki/Fisher–Yates_shuffle
+template <typename T, class RNG>
+void FisherYatesSample(size_t num_samples, T range_min, T range_max,
+                       std::vector<T>* dest, size_t start_index, RNG& rng);
+
 }  // namespace gen
 }  // namespace ycsbr
 

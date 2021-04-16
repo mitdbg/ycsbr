@@ -2,6 +2,7 @@
 #include <limits>
 #include <random>
 #include <unordered_set>
+#include <unordered_map>
 
 namespace ycsbr {
 namespace gen {
@@ -53,6 +54,39 @@ void SelectionSample(const size_t num_samples, const T range_min,
       (*dest)[samples++] = range_min + curr;
     }
     ++curr;
+  }
+}
+
+template <typename T, class RNG>
+void FisherYatesSample(const size_t num_samples, const T range_min,
+                       const T range_max, std::vector<T>* dest,
+                       const size_t start_index, RNG& rng) {
+  assert(range_min <= range_max);
+  assert(range_max - range_min >= num_samples);
+  assert(start_index < dest->size());
+  assert(start_index + num_samples <= dest->size());
+
+  std::unordered_map<size_t, T> swapped_indices;
+  swapped_indices.reserve(num_samples);
+
+  const T interval = range_max - range_min + 1;
+  for (size_t i = 0; i < num_samples; ++i) {
+    std::uniform_int_distribution<size_t> dist(i, interval - 1);
+    const size_t to_swap_idx = dist(rng);
+    auto it = swapped_indices.find(to_swap_idx);
+    if (it == swapped_indices.end()) {
+      // That index has not been swapped yet.
+      (*dest)[start_index + i] = range_min + to_swap_idx;
+    } else {
+      (*dest)[start_index + i] = range_min + it->second;
+    }
+
+    auto curr_it = swapped_indices.find(i);
+    if (curr_it == swapped_indices.end()) {
+      swapped_indices[to_swap_idx] = i;
+    } else {
+      swapped_indices[to_swap_idx] = curr_it->second;
+    }
   }
 }
 
