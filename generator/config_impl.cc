@@ -1,5 +1,6 @@
 #include "config_impl.h"
 
+#include <cassert>
 #include <iostream>
 #include <stdexcept>
 
@@ -119,7 +120,8 @@ std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
     const size_t num_records = GetNumLoadRecords();
     const Request::Key range_min = load_dist[kRangeMinKey].as<Request::Key>();
     const Request::Key range_max = load_dist[kRangeMaxKey].as<Request::Key>();
-    return std::make_unique<UniformGenerator>(num_records, range_min, range_max);
+    return std::make_unique<UniformGenerator>(num_records, range_min,
+                                              range_max);
 
   } else {
     throw std::invalid_argument("Unsupported load distribution: " + dist_type);
@@ -130,17 +132,52 @@ size_t WorkloadConfigImpl::GetNumPhases() const {
   return raw_config_[kRunConfigKey].size();
 }
 
-Phase WorkloadConfigImpl::GetPhase(PhaseID phase_id) const {
+Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id) const {
   const YAML::Node& phase_config = raw_config_[kRunConfigKey][phase_id];
   Phase phase;
-  phase.num_total_requests = phase_config[kNumRequestsKey].as<size_t>();
-  phase.num_requests_left = phase.num_total_requests;
-  // TODO: Compute thresholds and number of inserts needed.
+
+  // Load the number of requests.
+  phase.num_requests = phase_config[kNumRequestsKey].as<size_t>();
+  phase.num_requests_left = phase.num_requests;
+
+  // Load the request proportions and validate them.
+  // TODO: Instantiate the choosers.
+  uint32_t insert_pct = 0;
+  if (phase_config[kReadOpKey]) {
+    phase.read_thres = phase_config[kReadOpKey][kProportionKey].as<uint32_t>();
+  }
+  if (phase_config[kScanOpKey]) {
+    phase.scan_thres = phase_config[kScanOpKey][kProportionKey].as<uint32_t>();
+    phase.max_scan_length =
+        phase_config[kScanOpKey][kScanMaxLengthKey].as<size_t>();
+  }
+  if (phase_config[kUpdateOpKey]) {
+    phase.update_thres =
+        phase_config[kUpdateOpKey][kProportionKey].as<uint32_t>();
+  }
+  if (phase_config[kInsertOpKey]) {
+    insert_pct = phase_config[kInsertOpKey][kProportionKey].as<uint32_t>();
+  }
+  if (insert_pct + phase.read_thres + phase.scan_thres + phase.update_thres >
+      100) {
+    throw std::invalid_argument("Request proportions cannot exceed 100%.");
+  }
+
+  // Compute the number of inserts we should expect to do.
+  phase.num_inserts =
+      static_cast<size_t>(phase.num_requests * (insert_pct / 100.0));
+  phase.num_inserts_left = phase.num_inserts;
+
+  // Set the thresholds appropriately to allow for comparsion against a random
+  // integer generated in the range [0, 100).
+  phase.scan_thres += phase.read_thres;
+  phase.update_thres += phase.scan_thres;
+
   return phase;
 }
 
 std::unique_ptr<Generator> WorkloadConfigImpl::GetPhaseGenerator(
-    size_t phase_id) const {
+    const PhaseID phase_id, const Phase& phase) const {
   return nullptr;
 }
 

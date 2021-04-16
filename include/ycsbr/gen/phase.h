@@ -13,19 +13,21 @@ namespace gen {
 struct Phase {
   Phase()
       : num_inserts(0),
-        num_total_requests(0),
+        num_inserts_left(0),
+        num_requests(0),
         num_requests_left(0),
         read_thres(0),
         scan_thres(0),
-        update_thres(0) {}
+        update_thres(0),
+        max_scan_length(0) {}
 
   bool HasNext() const { return num_requests_left > 0; }
 
-  size_t num_inserts;
-  size_t num_total_requests;
-  size_t num_requests_left;
+  size_t num_inserts, num_inserts_left;
+  size_t num_requests, num_requests_left;
 
   uint32_t read_thres, scan_thres, update_thres;
+  size_t max_scan_length;
   std::unique_ptr<Chooser> read_chooser;
   std::unique_ptr<Chooser> scan_chooser;
   std::unique_ptr<Chooser> update_chooser;

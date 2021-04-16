@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <random>
 #include <vector>
 
 #include "ycsbr/gen/config.h"
@@ -17,17 +18,18 @@ namespace gen {
 class PhasedWorkload {
  public:
   static std::shared_ptr<PhasedWorkload> LoadFrom(
-      const std::filesystem::path& config_file);
+      const std::filesystem::path& config_file, uint32_t prng_seed = 42);
 
-  BulkLoadTrace GetLoadTrace();
+  BulkLoadTrace GetLoadTrace() const;
 
   class Producer;
   std::vector<Producer> GetProducers(size_t num_producers) const;
 
   // Not intended to be used directly. Use `LoadFrom()` instead.
-  PhasedWorkload(std::unique_ptr<WorkloadConfig> config);
+  PhasedWorkload(std::unique_ptr<WorkloadConfig> config, uint32_t prng_seed);
 
  private:
+  std::mt19937 prng_;
   std::unique_ptr<WorkloadConfig> config_;
   std::vector<Request::Key> load_keys_;
 };

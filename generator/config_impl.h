@@ -17,7 +17,8 @@ class WorkloadConfigImpl : public WorkloadConfig {
 
   size_t GetNumPhases() const override;
   Phase GetPhase(PhaseID phase_id) const override;
-  std::unique_ptr<Generator> GetPhaseGenerator(PhaseID phase_id) const override;
+  std::unique_ptr<Generator> GetPhaseGenerator(
+      PhaseID phase_id, const Phase& phase) const override;
 
  private:
   YAML::Node raw_config_;
