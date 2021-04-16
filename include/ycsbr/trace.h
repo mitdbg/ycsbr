@@ -51,6 +51,8 @@ class Trace {
   MinMaxKeys GetKeyRange() const;
 
  protected:
+  static Trace ProcessRawTrace(std::vector<Request> raw_trace,
+                               const Options& options);
   Trace(std::vector<Request> requests, std::unique_ptr<char[]> values,
         bool use_v1_semantics)
       : requests_(std::move(requests)),
@@ -67,6 +69,8 @@ class Trace {
 class BulkLoadTrace : public Trace {
  public:
   static BulkLoadTrace LoadFromFile(const std::string& file,
+                                    const Trace::Options& options);
+  static BulkLoadTrace LoadFromKeys(const std::vector<Request::Key>& keys,
                                     const Trace::Options& options);
   size_t DatasetSizeBytes() const;
 

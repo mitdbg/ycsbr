@@ -38,6 +38,12 @@ PhasedWorkload::PhasedWorkload(std::unique_ptr<WorkloadConfig> config,
   ApplyPhaseAndProducerIDs(&load_keys_, /*phase_id=*/0, /*producer_id=*/0);
 }
 
+BulkLoadTrace PhasedWorkload::GetLoadTrace() const {
+  Trace::Options options;
+  options.value_size = config_->GetRecordSizeBytes() - sizeof(Request::Key);
+  return BulkLoadTrace::LoadFromKeys(load_keys_, options);
+}
+
 std::vector<Producer> PhasedWorkload::GetProducers(
     const size_t num_producers) const {
   return std::vector<Producer>();

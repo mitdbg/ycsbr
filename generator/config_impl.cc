@@ -106,7 +106,12 @@ size_t WorkloadConfigImpl::GetNumLoadRecords() const {
 }
 
 size_t WorkloadConfigImpl::GetRecordSizeBytes() const {
-  return raw_config_[kRecordSizeBytesKey].as<size_t>();
+  const size_t record_size_bytes =
+      raw_config_[kRecordSizeBytesKey].as<size_t>();
+  if (record_size_bytes < 9) {
+    throw std::invalid_argument("Record sizes must be at least 9 bytes.");
+  }
+  return record_size_bytes;
 }
 
 std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {

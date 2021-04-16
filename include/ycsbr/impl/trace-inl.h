@@ -47,14 +47,19 @@ inline Trace Trace::LoadFromFile(const std::string& file,
                            scan_amount, nullptr, 0);
   }
 
+  return ProcessRawTrace(std::move(trace_raw), options);
+}
+
+inline Trace Trace::ProcessRawTrace(std::vector<Request> raw_trace,
+                                    const Options& options) {
   if (options.sort_requests) {
     if (options.use_v1_semantics) {
-      std::sort(trace_raw.begin(), trace_raw.end(),
+      std::sort(raw_trace.begin(), raw_trace.end(),
                 [](const Request& r1, const Request& r2) {
                   return memcmp(&r1.key, &r2.key, sizeof(r1.key)) < 0;
                 });
     } else {
-      std::sort(trace_raw.begin(), trace_raw.end());
+      std::sort(raw_trace.begin(), raw_trace.end());
     }
   }
 
@@ -69,10 +74,10 @@ inline Trace Trace::LoadFromFile(const std::string& file,
   }
 
   std::vector<Request> trace;
-  trace.reserve(trace_raw.size());
+  trace.reserve(raw_trace.size());
   size_t value_index = 0;
-  for (size_t i = 0; i < trace_raw.size(); ++i) {
-    const auto& raw = trace_raw[i];
+  for (size_t i = 0; i < raw_trace.size(); ++i) {
+    const auto& raw = raw_trace[i];
     if (raw.op == Request::Operation::kInsert ||
         raw.op == Request::Operation::kUpdate) {
       trace.emplace_back(
@@ -123,6 +128,21 @@ inline BulkLoadTrace BulkLoadTrace::LoadFromFile(
     }
   }
   return BulkLoadTrace(std::move(workload));
+}
+
+inline BulkLoadTrace BulkLoadTrace::LoadFromKeys(
+    const std::vector<Request::Key>& keys, const Trace::Options& options) {
+  std::vector<Request> raw_trace;
+  raw_trace.reserve(keys.size());
+  for (const auto& key : keys) {
+    // All operations are inserts.
+    raw_trace.emplace_back(Request::Operation::kInsert,
+                           options.use_v1_semantics && options.swap_key_bytes
+                               ? __builtin_bswap64(key)
+                               : key,
+                           0, nullptr, 0);
+  }
+  return BulkLoadTrace(Trace::ProcessRawTrace(std::move(raw_trace), options));
 }
 
 inline size_t BulkLoadTrace::DatasetSizeBytes() const {

@@ -187,4 +187,17 @@ TEST_F(TraceReplayA, SortRequests) {
   }
 }
 
+TEST(TraceTest, BulkLoadFromKeys) {
+  const Trace::Options options;
+  std::vector<Request::Key> keys = {0, 1, 2, 3, 4, 5};
+  const BulkLoadTrace load = BulkLoadTrace::LoadFromKeys(keys, options);
+  ASSERT_EQ(load.size(), keys.size());
+  for (size_t i = 0; i < load.size(); ++i) {
+    ASSERT_EQ(keys[i], load[i].key);
+    ASSERT_EQ(load[i].op, Request::Operation::kInsert);
+    ASSERT_EQ(load[i].value_size, options.value_size);
+    ASSERT_NE(load[i].value, nullptr);
+  }
+}
+
 }  // namespace

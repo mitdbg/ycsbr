@@ -20,8 +20,8 @@ UniformGenerator::UniformGenerator(size_t num_keys, Request::Key range_min,
 void UniformGenerator::Generate(std::mt19937& prng,
                                 std::vector<Request::Key>* dest,
                                 const size_t start_index) const {
-  FloydSample<Request::Key, std::mt19937>(num_keys_, range_min_, range_max_,
-                                          dest, start_index, prng);
+  SampleWithoutReplacement<Request::Key, std::mt19937>(
+      num_keys_, range_min_, range_max_, dest, start_index, prng);
   // Shuffle the samples to be sure the order is not biased.
   std::shuffle(dest->begin() + start_index,
                dest->begin() + start_index + num_keys_, prng);
