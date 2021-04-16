@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdint>
-#include <cstring>
+#include <random>
+#include <vector>
 
 #include "ycsbr/request.h"
 
@@ -14,9 +14,11 @@ class Generator {
  public:
   virtual ~Generator() = default;
 
-  // The returned key must be in the range [0, 2^48 - 1] (i.e., only the least
-  // significant 48 bits may be used to represent a key).
-  virtual Request::Key Next(uint32_t rand) = 0;
+  // The generated keys must be in the range [0, 2^48 - 1] (i.e., only the least
+  // significant 48 bits may be used to represent a key). The number of
+  // generated keys is stored by the `Generator` instance.
+  virtual void Generate(std::mt19937& prng, std::vector<Request::Key>* dest,
+                        size_t start_index) const = 0;
 };
 
 }  // namespace gen

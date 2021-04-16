@@ -11,5 +11,8 @@ enum class Distribution : uint8_t {
   kHotspot = 2
 };
 
+using PhaseID = uint64_t;
+using ProducerID = uint64_t;
+
 }  // namespace gen
 }  // namespace ycsbr

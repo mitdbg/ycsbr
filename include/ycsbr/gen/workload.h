@@ -7,6 +7,7 @@
 
 #include "ycsbr/gen/config.h"
 #include "ycsbr/gen/phase.h"
+#include "ycsbr/gen/types.h"
 #include "ycsbr/request.h"
 #include "ycsbr/workload/trace.h"
 
@@ -41,10 +42,11 @@ class PhasedWorkload::Producer {
   Request Next();
 
  private:
+  ProducerID id_;
   std::shared_ptr<PhasedWorkload> workload_;
 
   std::vector<Phase> phases_;
-  uint8_t current_phase_;
+  PhaseID current_phase_;
 
   // Stores all the keys this producer will eventually insert.
   std::vector<Request::Key> insert_keys_;

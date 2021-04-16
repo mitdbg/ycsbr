@@ -16,5 +16,7 @@ target_sources(ycsbr-gen
   PRIVATE
     config_impl.cc
     config_impl.h
+    uniform_keygen.cc
+    uniform_keygen.h
     workload.cc)
 target_link_libraries(ycsbr-gen PRIVATE yaml-cpp)
