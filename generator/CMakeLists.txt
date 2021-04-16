@@ -16,6 +16,8 @@ target_sources(ycsbr-gen
   PRIVATE
     config_impl.cc
     config_impl.h
+    sampling-inl.h
+    sampling.h
     uniform_keygen.cc
     uniform_keygen.h
     workload.cc)
