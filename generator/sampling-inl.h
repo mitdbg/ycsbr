@@ -51,7 +51,7 @@ void SelectionSample(const size_t num_samples, const T range_min,
   while (samples_so_far < num_samples) {
     const double u = dist(rng);
     if ((interval - curr) * u < num_samples - samples_so_far) {
-      (*dest)[samples_so_far++] = range_min + curr;
+      (*dest)[start_index + samples_so_far++] = range_min + curr;
     }
     ++curr;
   }
