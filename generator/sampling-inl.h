@@ -46,12 +46,12 @@ void SelectionSample(const size_t num_samples, const T range_min,
 
   std::uniform_real_distribution<double> dist(0.0, 1.0);
   const T interval = range_max - range_min + 1;
-  size_t samples = 0;
-  size_t curr = 0;
-  while (samples < num_samples) {
+  size_t samples_so_far = 0;
+  T curr = 0;
+  while (samples_so_far < num_samples) {
     const double u = dist(rng);
-    if ((interval - curr) * u < num_samples - samples) {
-      (*dest)[samples++] = range_min + curr;
+    if ((interval - curr) * u < num_samples - samples_so_far) {
+      (*dest)[samples_so_far++] = range_min + curr;
     }
     ++curr;
   }
