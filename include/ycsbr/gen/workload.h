@@ -9,6 +9,7 @@
 #include "ycsbr/gen/config.h"
 #include "ycsbr/gen/phase.h"
 #include "ycsbr/gen/types.h"
+#include "ycsbr/gen/valuegen.h"
 #include "ycsbr/request.h"
 #include "ycsbr/workload/trace.h"
 
@@ -60,12 +61,15 @@ class PhasedWorkload::Producer {
   std::vector<Phase> phases_;
   PhaseID current_phase_;
 
+  // The keys that were loaded.
   std::shared_ptr<const std::vector<Request::Key>> load_keys_;
   size_t num_load_keys_;
 
   // Stores all the keys this producer will eventually insert.
   std::vector<Request::Key> insert_keys_;
   size_t next_insert_key_index_;
+
+  ValueGenerator valuegen_;
 
   std::uniform_int_distribution<uint32_t> op_dist_;
 };

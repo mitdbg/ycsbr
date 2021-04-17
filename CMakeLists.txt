@@ -23,6 +23,7 @@ target_sources(ycsbr
     ${srcdir}/impl/thread_pool.h
     ${srcdir}/impl/trace-inl.h
     ${srcdir}/impl/tracking.h
+    ${srcdir}/impl/util.h
     ${srcdir}/workload/trace.h
     ${srcdir}/workload/workload.h
     ${srcdir}/benchmark_result.h
@@ -47,6 +48,7 @@ if(YR_BUILD_GENERATOR)
       ${srcdir}/gen/phase.h
       ${srcdir}/gen/types.h
       ${srcdir}/gen/util.h
+      ${srcdir}/gen/valuegen.h
       ${srcdir}/gen/workload.h)
   target_link_libraries(ycsbr-gen PUBLIC ycsbr)
   add_subdirectory(generator)

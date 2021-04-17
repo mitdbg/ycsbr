@@ -9,6 +9,10 @@ namespace {
 using namespace ycsbr;
 using namespace ycsbr::gen;
 
+// Producers will cycle through this many unique values (when inserting or
+// making updates).
+constexpr size_t kNumUniqueValues = 100;
+
 void ApplyPhaseAndProducerIDs(std::vector<Request::Key>::iterator begin,
                               std::vector<Request::Key>::iterator end,
                               const PhaseID phase_id,
@@ -77,6 +81,8 @@ Producer::Producer(std::shared_ptr<const WorkloadConfig> config,
       load_keys_(std::move(load_keys)),
       num_load_keys_(load_keys_->size()),
       next_insert_key_index_(0),
+      valuegen_(config_->GetRecordSizeBytes() - sizeof(Request::Key),
+                kNumUniqueValues, prng_),
       op_dist_(0, 99) {}
 
 void Producer::Prepare() {
@@ -146,7 +152,6 @@ Request Producer::Next() {
     }
   }
 
-  // TODO: Set value lengths here.
   Request to_return;
   switch (next_op) {
     case Request::Operation::kRead: {
@@ -166,13 +171,15 @@ Request Producer::Next() {
 
     case Request::Operation::kUpdate: {
       to_return = Request(Request::Operation::kUpdate,
-                          ChooseKey(this_phase.update_chooser), 0, nullptr, 0);
+                          ChooseKey(this_phase.update_chooser), 0,
+                          valuegen_.NextValue(), valuegen_.value_size());
       break;
     }
 
     case Request::Operation::kInsert: {
       to_return = Request(Request::Operation::kInsert,
-                          insert_keys_[next_insert_key_index_], 0, nullptr, 0);
+                          insert_keys_[next_insert_key_index_], 0,
+                          valuegen_.NextValue(), valuegen_.value_size());
       ++next_insert_key_index_;
       --this_phase.num_inserts_left;
       this_phase.IncreaseItemCountBy(1);

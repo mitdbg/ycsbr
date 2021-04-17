@@ -15,7 +15,7 @@ void PrintRequest(const Request& req) {
   switch (req.op) {
     case Request::Operation::kInsert:
       std::cerr << "[INSERT]  Key: 0x" << std::hex << req.key << std::dec
-                << std::endl;
+                << "  Value Size: " << req.value_size << std::endl;
       break;
     case Request::Operation::kRead:
       std::cerr << "[READ]    Key: 0x" << std::hex << req.key << std::dec
@@ -27,7 +27,7 @@ void PrintRequest(const Request& req) {
       break;
     case Request::Operation::kUpdate:
       std::cerr << "[UPDATE]  Key: 0x" << std::hex << req.key << std::dec
-                << std::endl;
+                << "  Value Size: " << req.value_size << std::endl;
       break;
   }
 }

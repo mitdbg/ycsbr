@@ -5,6 +5,8 @@
 #include <random>
 #include <stdexcept>
 
+#include "util.h"
+
 namespace ycsbr {
 
 // We recycle values in the synthetic dataset to avoid having to allocate too
@@ -65,13 +67,8 @@ inline Trace Trace::ProcessRawTrace(std::vector<Request> raw_trace,
 
   // Create the values and initialize them.
   size_t total_value_size = kNumUniqueValues * options.value_size;
-  std::unique_ptr<char[]> values = std::make_unique<char[]>(total_value_size);
   std::mt19937 rng(options.rng_seed);
-  size_t num_u32 = total_value_size / sizeof(uint32_t);
-  uint32_t* start = reinterpret_cast<uint32_t*>(values.get());
-  for (size_t i = 0; i < num_u32; ++i, ++start) {
-    *start = rng();
-  }
+  std::unique_ptr<char[]> values = impl::GetRandomBytes(total_value_size, rng);
 
   std::vector<Request> trace;
   trace.reserve(raw_trace.size());

@@ -26,7 +26,7 @@ struct Request {
   } __attribute__((packed));
 
   Request() : Request(Operation::kRead, 0, 0, nullptr, 0) {}
-  Request(Operation op, Key key, uint32_t scan_amount, char* value,
+  Request(Operation op, Key key, uint32_t scan_amount, const char* value,
           size_t value_size)
       : op(op),
         key(key),
@@ -44,7 +44,7 @@ struct Request {
 
   // Value to write; non-null only if `op` is `Operation::kInsert` or
   // `Operation::kUpdate`.
-  char* value;
+  const char* value;
 
   // Size of the value to write in bytes; non-zero only if `op` is
   // `Operation::kInsert` or `Operation::kUpdate`.
