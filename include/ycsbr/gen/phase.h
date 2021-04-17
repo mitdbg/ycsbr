@@ -25,6 +25,30 @@ struct Phase {
 
   bool HasNext() const { return num_requests_left > 0; }
 
+  void SetItemCount(const size_t item_count) {
+    if (read_chooser != nullptr) {
+      read_chooser->SetItemCount(item_count);
+    }
+    if (scan_chooser != nullptr) {
+      scan_chooser->SetItemCount(item_count);
+    }
+    if (update_chooser != nullptr) {
+      update_chooser->SetItemCount(item_count);
+    }
+  }
+
+  void IncreaseItemCountBy(const size_t delta) {
+    if (read_chooser != nullptr) {
+      read_chooser->IncreaseItemCountBy(delta);
+    }
+    if (scan_chooser != nullptr) {
+      scan_chooser->IncreaseItemCountBy(delta);
+    }
+    if (update_chooser != nullptr) {
+      update_chooser->IncreaseItemCountBy(delta);
+    }
+  }
+
   PhaseID phase_id;
 
   size_t num_inserts, num_inserts_left;

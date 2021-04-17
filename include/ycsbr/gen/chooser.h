@@ -15,7 +15,8 @@ class Chooser {
  public:
   virtual ~Chooser() = default;
   virtual size_t Next(std::mt19937& prng) = 0;
-  virtual void IncreaseItemCount(size_t new_item_count) = 0;
+  virtual void SetItemCount(size_t item_count) = 0;
+  virtual void IncreaseItemCountBy(size_t delta) = 0;
 };
 
 }  // namespace gen

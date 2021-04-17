@@ -101,15 +101,7 @@ void Producer::Prepare() {
   bool first_iter = true;
   for (auto& phase : phases_) {
     if (!first_iter) {
-      if (phase.read_chooser != nullptr) {
-        phase.read_chooser->IncreaseItemCount(count);
-      }
-      if (phase.scan_chooser != nullptr) {
-        phase.scan_chooser->IncreaseItemCount(count);
-      }
-      if (phase.update_chooser != nullptr) {
-        phase.update_chooser->IncreaseItemCount(count);
-      }
+      phase.SetItemCount(count);
     }
     first_iter = false;
     count += phase.num_inserts;
@@ -132,7 +124,6 @@ Request Producer::Next() {
 
   Request::Operation next_op = Request::Operation::kInsert;
 
-  // TODO: Fix bug here - we can choose inserts too many times.
   // If there are more requests left than inserts, we can randomly decide what
   // request to do next. Otherwise we must do an insert.
   if (this_phase.num_inserts_left < this_phase.num_requests_left) {
@@ -146,6 +137,7 @@ Request Producer::Next() {
       next_op = Request::Operation::kUpdate;
     } else {
       next_op = Request::Operation::kInsert;
+      assert(this_phase.num_inserts_left > 0);
     }
   }
 
@@ -176,6 +168,13 @@ Request Producer::Next() {
                           insert_keys_[next_insert_key_index_], 0, nullptr, 0);
       ++next_insert_key_index_;
       --this_phase.num_inserts_left;
+      this_phase.IncreaseItemCountBy(1);
+      if (this_phase.num_inserts_left == 0) {
+        // No more inserts left. We adjust the operation selection distribution
+        // to make sure we no longer select inserts during this phase.
+        op_dist_ =
+            std::uniform_int_distribution<uint32_t>(0, this_phase.update_thres);
+      }
       break;
     }
   }
@@ -184,6 +183,8 @@ Request Producer::Next() {
   --this_phase.num_requests_left;
   if (this_phase.num_requests_left == 0) {
     ++current_phase_;
+    // Reset the operation selection distribution.
+    op_dist_ = std::uniform_int_distribution<uint32_t>(0, 99);
   }
   return to_return;
 }
