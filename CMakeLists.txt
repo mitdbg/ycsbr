@@ -47,8 +47,7 @@ if(YR_BUILD_GENERATOR)
       ${srcdir}/gen/phase.h
       ${srcdir}/gen/types.h
       ${srcdir}/gen/util.h
-      ${srcdir}/gen/workload.h
-      ${srcdir}/gen/zipfian.h)
+      ${srcdir}/gen/workload.h)
   target_link_libraries(ycsbr-gen PUBLIC ycsbr)
   add_subdirectory(generator)
 endif()

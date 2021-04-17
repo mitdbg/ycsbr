@@ -18,7 +18,9 @@ target_sources(ycsbr-gen
     config_impl.h
     sampling-inl.h
     sampling.h
+    uniform_chooser.h
     uniform_keygen.cc
     uniform_keygen.h
-    workload.cc)
+    workload.cc
+    zipfian.h)
 target_link_libraries(ycsbr-gen PRIVATE yaml-cpp)

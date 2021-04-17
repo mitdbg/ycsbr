@@ -15,7 +15,7 @@
 namespace ycsbr {
 namespace gen {
 
-class PhasedWorkload {
+class PhasedWorkload : public std::enable_shared_from_this<PhasedWorkload> {
  public:
   static std::shared_ptr<PhasedWorkload> LoadFrom(
       const std::filesystem::path& config_file, uint32_t prng_seed = 42);
@@ -29,6 +29,7 @@ class PhasedWorkload {
   PhasedWorkload(std::shared_ptr<WorkloadConfig> config, uint32_t prng_seed);
 
  private:
+  friend class Producer;
   std::mt19937 prng_;
   uint32_t prng_seed_;
   std::shared_ptr<WorkloadConfig> config_;
@@ -46,12 +47,12 @@ class PhasedWorkload::Producer {
 
  private:
   friend class PhasedWorkload;
-  Producer(std::shared_ptr<WorkloadConfig> config, ProducerID id,
+  Producer(std::shared_ptr<const PhasedWorkload> workload, ProducerID id,
            size_t num_producers, uint32_t prng_seed);
 
   ProducerID id_;
   size_t num_producers_;
-  std::shared_ptr<WorkloadConfig> config_;
+  std::shared_ptr<const PhasedWorkload> workload_;
   std::mt19937 prng_;
 
   std::vector<Phase> phases_;

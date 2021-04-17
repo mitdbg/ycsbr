@@ -52,37 +52,59 @@ std::vector<Producer> PhasedWorkload::GetProducers(
   std::vector<Producer> producers;
   producers.reserve(num_producers);
   for (ProducerID id = 0; id < num_producers; ++id) {
-    producers.push_back(Producer(config_, id, num_producers, prng_seed_ ^ id));
+    producers.push_back(
+        Producer(shared_from_this(), id, num_producers, prng_seed_ ^ id));
   }
   return producers;
 }
 
-Producer::Producer(std::shared_ptr<WorkloadConfig> config, const ProducerID id,
-                   const size_t num_producers, const uint32_t prng_seed)
+Producer::Producer(std::shared_ptr<const PhasedWorkload> workload,
+                   const ProducerID id, const size_t num_producers,
+                   const uint32_t prng_seed)
     : id_(id),
       num_producers_(num_producers),
-      config_(std::move(config)),
+      workload_(std::move(workload)),
       prng_(prng_seed),
       current_phase_(0),
       next_insert_key_index_(0) {}
 
 void Producer::Prepare() {
   // Set up the workload phases.
-  const size_t num_phases = config_->GetNumPhases();
+  const size_t num_phases = workload_->config_->GetNumPhases();
   phases_.reserve(num_phases);
   for (PhaseID phase_id = 0; phase_id < num_phases; ++phase_id) {
-    phases_.push_back(config_->GetPhase(phase_id, id_, num_producers_));
+    phases_.push_back(
+        workload_->config_->GetPhase(phase_id, id_, num_producers_));
   }
 
   // Generate the inserts.
   size_t insert_index = 0;
   for (auto& phase : phases_) {
     if (phase.num_inserts == 0) continue;
-    auto generator = config_->GetGeneratorForPhase(phase);
+    auto generator = workload_->config_->GetGeneratorForPhase(phase);
     assert(generator != nullptr);
     insert_keys_.resize(insert_keys_.size() + phase.num_inserts);
     generator->Generate(prng_, &insert_keys_, insert_index);
     insert_index = insert_keys_.size();
+  }
+
+  // Update the phase chooser item counts.
+  size_t count = workload_->load_keys_.size();
+  bool first_iter = true;
+  for (auto& phase : phases_) {
+    if (!first_iter) {
+      if (phase.read_chooser != nullptr) {
+        phase.read_chooser->IncreaseItemCount(count);
+      }
+      if (phase.scan_chooser != nullptr) {
+        phase.scan_chooser->IncreaseItemCount(count);
+      }
+      if (phase.update_chooser != nullptr) {
+        phase.update_chooser->IncreaseItemCount(count);
+      }
+    }
+    first_iter = false;
+    count += phase.num_inserts;
   }
 }
 

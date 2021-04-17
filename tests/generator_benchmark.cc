@@ -4,9 +4,9 @@
 #include <vector>
 
 #include "../generator/sampling.h"
+#include "../generator/zipfian.h"
 #include "benchmark/benchmark.h"
 #include "ycsbr/gen/util.h"
-#include "ycsbr/gen/zipfian.h"
 
 namespace {
 

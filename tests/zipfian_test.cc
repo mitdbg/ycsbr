@@ -1,4 +1,5 @@
-#include "ycsbr/gen/zipfian.h"
+#include "../generator/zipfian.h"
+
 #include "gtest/gtest.h"
 
 namespace {

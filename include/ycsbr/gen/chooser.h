@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <random>
 
 #include "ycsbr/request.h"
 
@@ -13,7 +14,8 @@ namespace gen {
 class Chooser {
  public:
   virtual ~Chooser() = default;
-  virtual size_t Next(uint32_t rand) = 0;
+  virtual size_t Next(std::mt19937& prng) = 0;
+  virtual void IncreaseItemCount(size_t new_item_count) = 0;
 };
 
 }  // namespace gen

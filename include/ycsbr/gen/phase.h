@@ -34,6 +34,7 @@ struct Phase {
   size_t max_scan_length;
   std::unique_ptr<Chooser> read_chooser;
   std::unique_ptr<Chooser> scan_chooser;
+  std::unique_ptr<Chooser> scan_length_chooser;
   std::unique_ptr<Chooser> update_chooser;
 };
 

@@ -32,5 +32,10 @@ int main(int argc, char* argv[]) {
     std::cerr << "Key: 0x" << std::hex << req.key << std::dec << std::endl;
   }
 
+  std::vector<PhasedWorkload::Producer> producers = workload->GetProducers(1);
+  for (auto& prod : producers) {
+    prod.Prepare();
+  }
+
   return 0;
 }
