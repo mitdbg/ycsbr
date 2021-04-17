@@ -59,4 +59,25 @@ class TestDatabaseInterface {
   std::atomic<size_t> shutdown_worker_calls = 0;
 };
 
+// All operations are intentionally no-ops.
+class NoOpInterface {
+ public:
+  void InitializeWorker(const std::thread::id& worker_id) {}
+  void ShutdownWorker(const std::thread::id& worker_id) {}
+  void InitializeDatabase() {}
+  void ShutdownDatabase() {}
+  void BulkLoad(const BulkLoadTrace& load) {}
+  bool Update(Request::Key key, const char* value, size_t value_size) {
+    return true;
+  }
+  bool Insert(Request::Key key, const char* value, size_t value_size) {
+    return true;
+  }
+  bool Read(Request::Key key, std::string* value_out) { return true; }
+  bool Scan(Request::Key key, size_t amount,
+            std::vector<std::pair<Request::Key, std::string>>* scan_out) {
+    return true;
+  }
+};
+
 }  // namespace ycsbr

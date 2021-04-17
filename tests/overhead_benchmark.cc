@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "benchmark/benchmark.h"
+#include "db_interface.h"
 #include "workloads/create_workload.h"
 #include "ycsbr/benchmark.h"
 #include "ycsbr/impl/executor.h"
@@ -17,33 +18,13 @@ namespace {
 
 using namespace ycsbr;
 
-// All operations are intentionally no-ops.
-class NoOpInterface {
- public:
-  void InitializeWorker(const std::thread::id& worker_id) {}
-  void ShutdownWorker(const std::thread::id& worker_id) {}
-  void InitializeDatabase() {}
-  void ShutdownDatabase() {}
-  void BulkLoad(const BulkLoadTrace& load) {}
-  bool Update(Request::Key key, const char* value, size_t value_size) {
-    return true;
-  }
-  bool Insert(Request::Key key, const char* value, size_t value_size) {
-    return true;
-  }
-  bool Read(Request::Key key, std::string* value_out) { return true; }
-  bool Scan(Request::Key key, size_t amount,
-            std::vector<std::pair<Request::Key, std::string>>* scan_out) {
-    return true;
-  }
-};
-
 class SimpleWorkload {
  public:
   SimpleWorkload(size_t num_requests) : num_requests_(num_requests) {}
   class Producer {
    public:
     Producer(size_t num_requests) : num_requests_(num_requests), index_(0) {}
+    void Prepare() {}
     bool HasNext() const { return index_ < num_requests_; }
     Request Next() {
       ++index_;
@@ -77,8 +58,7 @@ void BM_SimpleInterfaceOverhead(benchmark::State& state) {
   BenchmarkOptions<NoOpInterface> boptions;
   boptions.latency_sample_period = state.range(0);
   for (auto _ : state) {
-    const auto result =
-        ReplayTrace<NoOpInterface>(trace, nullptr, boptions);
+    const auto result = ReplayTrace<NoOpInterface>(trace, nullptr, boptions);
     state.SetIterationTime(
         result.RunTime<std::chrono::duration<double>>().count());
   }

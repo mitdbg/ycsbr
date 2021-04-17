@@ -109,8 +109,8 @@ inline BenchmarkResult Session<DatabaseInterface>::RunWorkload(
   std::vector<std::unique_ptr<Runner>> executors;
   executors.reserve(num_threads_);
   for (auto& producer : producers) {
-    executors.push_back(
-        std::make_unique<Runner>(&db_, producer, &can_start, options));
+    executors.push_back(std::make_unique<Runner>(&db_, std::move(producer),
+                                                 &can_start, options));
     threads_->SubmitNoWait([exec = executors.back().get()]() { (*exec)(); });
   }
 

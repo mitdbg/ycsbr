@@ -35,6 +35,12 @@ std::unique_ptr<PhasedWorkload> PhasedWorkload::LoadFrom(
                                           prng_seed);
 }
 
+std::unique_ptr<PhasedWorkload> PhasedWorkload::LoadFromString(
+    const std::string& raw_config, const uint32_t prng_seed) {
+  return std::make_unique<PhasedWorkload>(
+      WorkloadConfig::LoadFromString(raw_config), prng_seed);
+}
+
 PhasedWorkload::PhasedWorkload(std::shared_ptr<WorkloadConfig> config,
                                const uint32_t prng_seed)
     : prng_(prng_seed),

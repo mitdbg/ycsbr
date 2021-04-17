@@ -21,6 +21,7 @@ class TraceWorkload {
 
 class TraceWorkload::Producer {
  public:
+  void Prepare() {}
   bool HasNext() const { return index_ < stop_before_; }
   Request Next() { return (*trace_)[index_++]; }
 

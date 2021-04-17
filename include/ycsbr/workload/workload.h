@@ -22,6 +22,10 @@ class ExampleCustomWorkload::Producer final {
  public:
   virtual ~Producer() = default;
 
+  // Called once after this `Producer` is created.
+  // Useful for running setup code.
+  virtual void Prepare() = 0;
+
   // Return true if there are still more requests.
   virtual bool HasNext() = 0;
 

@@ -20,6 +20,8 @@ class PhasedWorkload {
  public:
   static std::unique_ptr<PhasedWorkload> LoadFrom(
       const std::filesystem::path& config_file, uint32_t prng_seed = 42);
+  static std::unique_ptr<PhasedWorkload> LoadFromString(
+      const std::string& raw_config, uint32_t prng_seed = 42);
 
   BulkLoadTrace GetLoadTrace() const;
 

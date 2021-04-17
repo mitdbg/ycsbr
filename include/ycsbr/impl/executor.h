@@ -97,6 +97,9 @@ inline std::optional<std::chrono::nanoseconds> MeasurementHelper2(
 
 template <class DatabaseInterface, typename WorkloadProducer>
 inline void Executor<DatabaseInterface, WorkloadProducer>::operator()() {
+  // Run any needed preparation code.
+  producer_.Prepare();
+
   // Now ready to proceed; wait until we're told to start.
   ready_.store(true, std::memory_order_release);
   can_start_->Wait();

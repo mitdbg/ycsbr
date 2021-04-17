@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <string>
 
 #include "ycsbr/gen/keygen.h"
 #include "ycsbr/gen/phase.h"
@@ -14,6 +15,8 @@ class WorkloadConfig {
  public:
   static std::shared_ptr<WorkloadConfig> LoadFrom(
       const std::filesystem::path& config_file);
+  static std::shared_ptr<WorkloadConfig> LoadFromString(
+      const std::string& raw_config);
 
   virtual size_t GetNumLoadRecords() const = 0;
   virtual size_t GetRecordSizeBytes() const = 0;

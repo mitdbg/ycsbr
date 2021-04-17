@@ -99,6 +99,15 @@ std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFrom(
   }
 }
 
+std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFromString(
+    const std::string& raw_config) {
+  YAML::Node node = YAML::Load(raw_config);
+  if (!ValidateConfig(node)) {
+    throw std::invalid_argument("Invalid workload configuration string.");
+  }
+  return std::make_shared<WorkloadConfigImpl>(std::move(node));
+}
+
 WorkloadConfigImpl::WorkloadConfigImpl(YAML::Node raw_config)
     : raw_config_(std::move(raw_config)) {}
 
