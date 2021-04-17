@@ -29,7 +29,6 @@ class PhasedWorkload {
   PhasedWorkload(std::shared_ptr<WorkloadConfig> config, uint32_t prng_seed);
 
  private:
-  friend class Producer;
   std::mt19937 prng_;
   uint32_t prng_seed_;
   std::shared_ptr<WorkloadConfig> config_;
