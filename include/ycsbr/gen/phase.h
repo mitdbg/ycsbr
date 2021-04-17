@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "ycsbr/gen/chooser.h"
+#include "ycsbr/gen/types.h"
 #include "ycsbr/request.h"
 
 namespace ycsbr {
@@ -11,8 +12,9 @@ namespace gen {
 // Tracks the current state of a workload phase.
 // This is meant for internal use only.
 struct Phase {
-  Phase()
-      : num_inserts(0),
+  explicit Phase(PhaseID phase_id)
+      : phase_id(phase_id),
+        num_inserts(0),
         num_inserts_left(0),
         num_requests(0),
         num_requests_left(0),
@@ -22,6 +24,8 @@ struct Phase {
         max_scan_length(0) {}
 
   bool HasNext() const { return num_requests_left > 0; }
+
+  PhaseID phase_id;
 
   size_t num_inserts, num_inserts_left;
   size_t num_requests, num_requests_left;

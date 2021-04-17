@@ -1,5 +1,7 @@
 #include "ycsbr/gen/workload.h"
 
+#include <cassert>
+
 #include "ycsbr/gen/types.h"
 
 namespace {
@@ -28,9 +30,10 @@ std::shared_ptr<PhasedWorkload> PhasedWorkload::LoadFrom(
                                           prng_seed);
 }
 
-PhasedWorkload::PhasedWorkload(std::unique_ptr<WorkloadConfig> config,
+PhasedWorkload::PhasedWorkload(std::shared_ptr<WorkloadConfig> config,
                                const uint32_t prng_seed)
     : prng_(prng_seed),
+      prng_seed_(prng_seed),
       config_(std::move(config)),
       load_keys_(config_->GetNumLoadRecords(), 0) {
   auto load_gen = config_->GetLoadGenerator();
@@ -46,12 +49,41 @@ BulkLoadTrace PhasedWorkload::GetLoadTrace() const {
 
 std::vector<Producer> PhasedWorkload::GetProducers(
     const size_t num_producers) const {
-  return std::vector<Producer>();
+  std::vector<Producer> producers;
+  producers.reserve(num_producers);
+  for (ProducerID id = 0; id < num_producers; ++id) {
+    producers.push_back(Producer(config_, id, num_producers, prng_seed_ ^ id));
+  }
+  return producers;
 }
 
+Producer::Producer(std::shared_ptr<WorkloadConfig> config, const ProducerID id,
+                   const size_t num_producers, const uint32_t prng_seed)
+    : id_(id),
+      num_producers_(num_producers),
+      config_(std::move(config)),
+      prng_(prng_seed),
+      current_phase_(0),
+      next_insert_key_index_(0) {}
+
 void Producer::Prepare() {
-  // 1. Initialize choosers/distributions
-  // 2. Compute indices and offsets
+  // Set up the workload phases.
+  const size_t num_phases = config_->GetNumPhases();
+  phases_.reserve(num_phases);
+  for (PhaseID phase_id = 0; phase_id < num_phases; ++phase_id) {
+    phases_.push_back(config_->GetPhase(phase_id, id_, num_producers_));
+  }
+
+  // Generate the inserts.
+  size_t insert_index = 0;
+  for (auto& phase : phases_) {
+    if (phase.num_inserts == 0) continue;
+    auto generator = config_->GetGeneratorForPhase(phase);
+    assert(generator != nullptr);
+    insert_keys_.resize(insert_keys_.size() + phase.num_inserts);
+    generator->Generate(prng_, &insert_keys_, insert_index);
+    insert_index = insert_keys_.size();
+  }
 }
 
 Request Producer::Next() {

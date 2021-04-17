@@ -84,14 +84,14 @@ bool ValidateConfig(const YAML::Node& raw_config) {
 namespace ycsbr {
 namespace gen {
 
-std::unique_ptr<WorkloadConfig> WorkloadConfig::LoadFrom(
+std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFrom(
     const std::filesystem::path& config_file) {
   try {
     YAML::Node node = YAML::LoadFile(config_file);
     if (!ValidateConfig(node)) {
       throw std::invalid_argument("Invalid workload configuration file.");
     }
-    return std::make_unique<WorkloadConfigImpl>(std::move(node));
+    return std::make_shared<WorkloadConfigImpl>(std::move(node));
   } catch (const YAML::BadFile&) {
     throw std::invalid_argument(
         "Could not parse the workload configuration file.");
@@ -137,12 +137,19 @@ size_t WorkloadConfigImpl::GetNumPhases() const {
   return raw_config_[kRunConfigKey].size();
 }
 
-Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id) const {
+Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
+                                   const ProducerID producer_id,
+                                   const size_t num_producers) const {
   const YAML::Node& phase_config = raw_config_[kRunConfigKey][phase_id];
-  Phase phase;
+  Phase phase(phase_id);
 
-  // Load the number of requests.
-  phase.num_requests = phase_config[kNumRequestsKey].as<size_t>();
+  // Compute the number of requests for this producer.
+  const size_t total_requests = phase_config[kNumRequestsKey].as<size_t>();
+  phase.num_requests = total_requests / num_producers;
+  const size_t remainder = total_requests % num_producers;
+  if (producer_id < remainder) {
+    ++phase.num_requests;
+  }
   phase.num_requests_left = phase.num_requests;
 
   // Load the request proportions and validate them.
@@ -181,9 +188,28 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id) const {
   return phase;
 }
 
-std::unique_ptr<Generator> WorkloadConfigImpl::GetPhaseGenerator(
-    const PhaseID phase_id, const Phase& phase) const {
-  return nullptr;
+std::unique_ptr<Generator> WorkloadConfigImpl::GetGeneratorForPhase(
+    const Phase& phase) const {
+  const YAML::Node& phase_config = raw_config_[kRunConfigKey][phase.phase_id];
+  if (!phase_config) {
+    throw std::invalid_argument("Nonexistent phase id: " + phase.phase_id);
+  }
+  if (!phase_config[kInsertOpKey] || phase.num_inserts == 0) {
+    // There are no inserts.
+    return nullptr;
+  }
+
+  const YAML::Node& dist = phase_config[kInsertOpKey][kDistributionKey];
+  const std::string dist_type = dist[kDistributionTypeKey].as<std::string>();
+  if (dist_type == kUniformDist) {
+    const Request::Key range_min = dist[kRangeMinKey].as<Request::Key>();
+    const Request::Key range_max = dist[kRangeMaxKey].as<Request::Key>();
+    return std::make_unique<UniformGenerator>(phase.num_inserts, range_min,
+                                              range_max);
+  } else {
+    throw std::invalid_argument("Unsupported insert distribution: " +
+                                dist_type);
+  }
 }
 
 }  // namespace gen

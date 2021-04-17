@@ -26,11 +26,12 @@ class PhasedWorkload {
   std::vector<Producer> GetProducers(size_t num_producers) const;
 
   // Not intended to be used directly. Use `LoadFrom()` instead.
-  PhasedWorkload(std::unique_ptr<WorkloadConfig> config, uint32_t prng_seed);
+  PhasedWorkload(std::shared_ptr<WorkloadConfig> config, uint32_t prng_seed);
 
  private:
   std::mt19937 prng_;
-  std::unique_ptr<WorkloadConfig> config_;
+  uint32_t prng_seed_;
+  std::shared_ptr<WorkloadConfig> config_;
   std::vector<Request::Key> load_keys_;
 };
 
@@ -44,8 +45,14 @@ class PhasedWorkload::Producer {
   Request Next();
 
  private:
+  friend class PhasedWorkload;
+  Producer(std::shared_ptr<WorkloadConfig> config, ProducerID id,
+           size_t num_producers, uint32_t prng_seed);
+
   ProducerID id_;
-  std::shared_ptr<PhasedWorkload> workload_;
+  size_t num_producers_;
+  std::shared_ptr<WorkloadConfig> config_;
+  std::mt19937 prng_;
 
   std::vector<Phase> phases_;
   PhaseID current_phase_;
