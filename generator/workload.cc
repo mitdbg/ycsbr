@@ -9,11 +9,12 @@ namespace {
 using namespace ycsbr;
 using namespace ycsbr::gen;
 
-void ApplyPhaseAndProducerIDs(std::vector<Request::Key>* keys,
+void ApplyPhaseAndProducerIDs(std::vector<Request::Key>::iterator begin,
+                              std::vector<Request::Key>::iterator end,
                               const PhaseID phase_id,
                               const ProducerID producer_id) {
-  for (auto& key : *keys) {
-    key = (key << 16) | ((phase_id & 0xFF) << 8) | (producer_id & 0xFF);
+  for (auto it = begin; it != end; ++it) {
+    *it = (*it << 16) | ((phase_id & 0xFF) << 8) | (producer_id & 0xFF);
   }
 }
 
@@ -38,7 +39,8 @@ PhasedWorkload::PhasedWorkload(std::shared_ptr<WorkloadConfig> config,
       load_keys_(config_->GetNumLoadRecords(), 0) {
   auto load_gen = config_->GetLoadGenerator();
   load_gen->Generate(prng_, &load_keys_, 0);
-  ApplyPhaseAndProducerIDs(&load_keys_, /*phase_id=*/0, /*producer_id=*/0);
+  ApplyPhaseAndProducerIDs(load_keys_.begin(), load_keys_.end(), /*phase_id=*/0,
+                           /*producer_id=*/0);
 }
 
 BulkLoadTrace PhasedWorkload::GetLoadTrace() const {
@@ -66,7 +68,8 @@ Producer::Producer(std::shared_ptr<const PhasedWorkload> workload,
       workload_(std::move(workload)),
       prng_(prng_seed),
       current_phase_(0),
-      next_insert_key_index_(0) {}
+      next_insert_key_index_(0),
+      op_dist_(0, 99) {}
 
 void Producer::Prepare() {
   // Set up the workload phases.
@@ -85,6 +88,11 @@ void Producer::Prepare() {
     assert(generator != nullptr);
     insert_keys_.resize(insert_keys_.size() + phase.num_inserts);
     generator->Generate(prng_, &insert_keys_, insert_index);
+    ApplyPhaseAndProducerIDs(
+        insert_keys_.begin() + insert_index,
+        insert_keys_.begin() + insert_index + phase.num_inserts,
+        // We add 1 because the ID 0 is reserved for the initial load.
+        phase.phase_id + 1, id_ + 1);
     insert_index = insert_keys_.size();
   }
 
@@ -108,9 +116,76 @@ void Producer::Prepare() {
   }
 }
 
+Request::Key Producer::ChooseKey(const std::unique_ptr<Chooser>& chooser) {
+  // TODO: We should probably also store `num_load_keys` in the producer.
+  const size_t index = chooser->Next(prng_);
+  const size_t num_load_keys = workload_->load_keys_.size();
+  if (index < num_load_keys) {
+    return workload_->load_keys_[index];
+  }
+  return insert_keys_[index - num_load_keys];
+}
+
 Request Producer::Next() {
-  // Advance based on the phase
-  return Request();
+  assert(HasNext());
+  Phase& this_phase = phases_[current_phase_];
+
+  Request::Operation next_op = Request::Operation::kInsert;
+
+  // TODO: Fix bug here - we can choose inserts too many times.
+  // If there are more requests left than inserts, we can randomly decide what
+  // request to do next. Otherwise we must do an insert.
+  if (this_phase.num_inserts_left < this_phase.num_requests_left) {
+    // Decide what operation to do.
+    const uint32_t choice = op_dist_(prng_);
+    if (choice < this_phase.read_thres) {
+      next_op = Request::Operation::kRead;
+    } else if (choice < this_phase.scan_thres) {
+      next_op = Request::Operation::kScan;
+    } else if (choice < this_phase.update_thres) {
+      next_op = Request::Operation::kUpdate;
+    } else {
+      next_op = Request::Operation::kInsert;
+    }
+  }
+
+  // TODO: Set value lengths here.
+  Request to_return;
+  switch (next_op) {
+    case Request::Operation::kRead: {
+      to_return = Request(Request::Operation::kRead,
+                          ChooseKey(this_phase.read_chooser), 0, nullptr, 0);
+      break;
+    }
+
+    case Request::Operation::kScan: {
+      to_return =
+          Request(Request::Operation::kScan, ChooseKey(this_phase.scan_chooser),
+                  this_phase.scan_length_chooser->Next(prng_) + 1, nullptr, 0);
+      break;
+    }
+
+    case Request::Operation::kUpdate: {
+      to_return = Request(Request::Operation::kUpdate,
+                          ChooseKey(this_phase.update_chooser), 0, nullptr, 0);
+      break;
+    }
+
+    case Request::Operation::kInsert: {
+      to_return = Request(Request::Operation::kInsert,
+                          insert_keys_[next_insert_key_index_], 0, nullptr, 0);
+      ++next_insert_key_index_;
+      --this_phase.num_inserts_left;
+      break;
+    }
+  }
+
+  // Advance to the next request.
+  --this_phase.num_requests_left;
+  if (this_phase.num_requests_left == 0) {
+    ++current_phase_;
+  }
+  return to_return;
 }
 
 }  // namespace gen

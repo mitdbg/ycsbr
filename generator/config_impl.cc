@@ -135,7 +135,12 @@ std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
 }
 
 size_t WorkloadConfigImpl::GetNumPhases() const {
-  return raw_config_[kRunConfigKey].size();
+  const size_t num_phases = raw_config_[kRunConfigKey].size();
+  if (num_phases > std::numeric_limits<uint8_t>::max() - 1) {
+    throw std::invalid_argument(
+        "Too many workload phases (only 255 are supported).");
+  }
+  return num_phases;
 }
 
 Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
@@ -205,9 +210,10 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
   if (phase_config[kInsertOpKey]) {
     insert_pct = phase_config[kInsertOpKey][kProportionKey].as<uint32_t>();
   }
-  if (insert_pct + phase.read_thres + phase.scan_thres + phase.update_thres >
+  if (insert_pct + phase.read_thres + phase.scan_thres + phase.update_thres !=
       100) {
-    throw std::invalid_argument("Request proportions cannot exceed 100%.");
+    throw std::invalid_argument(
+        "Request proportions must sum to exactly 100%.");
   }
 
   // Compute the number of inserts we should expect to do.

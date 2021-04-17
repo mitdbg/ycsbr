@@ -50,6 +50,8 @@ class PhasedWorkload::Producer {
   Producer(std::shared_ptr<const PhasedWorkload> workload, ProducerID id,
            size_t num_producers, uint32_t prng_seed);
 
+  Request::Key ChooseKey(const std::unique_ptr<Chooser>& chooser);
+
   ProducerID id_;
   size_t num_producers_;
   std::shared_ptr<const PhasedWorkload> workload_;
@@ -61,6 +63,8 @@ class PhasedWorkload::Producer {
   // Stores all the keys this producer will eventually insert.
   std::vector<Request::Key> insert_keys_;
   size_t next_insert_key_index_;
+
+  std::uniform_int_distribution<uint32_t> op_dist_;
 };
 
 }  // namespace gen
