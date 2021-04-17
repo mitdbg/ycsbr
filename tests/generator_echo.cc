@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
     seed = std::atoi(argv[2]);
   }
 
-  std::shared_ptr<PhasedWorkload> workload =
+  std::unique_ptr<PhasedWorkload> workload =
       PhasedWorkload::LoadFrom(config_file, seed);
   BulkLoadTrace load = workload->GetLoadTrace();
 

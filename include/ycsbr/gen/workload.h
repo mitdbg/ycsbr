@@ -15,9 +15,9 @@
 namespace ycsbr {
 namespace gen {
 
-class PhasedWorkload : public std::enable_shared_from_this<PhasedWorkload> {
+class PhasedWorkload {
  public:
-  static std::shared_ptr<PhasedWorkload> LoadFrom(
+  static std::unique_ptr<PhasedWorkload> LoadFrom(
       const std::filesystem::path& config_file, uint32_t prng_seed = 42);
 
   BulkLoadTrace GetLoadTrace() const;
@@ -33,7 +33,7 @@ class PhasedWorkload : public std::enable_shared_from_this<PhasedWorkload> {
   std::mt19937 prng_;
   uint32_t prng_seed_;
   std::shared_ptr<WorkloadConfig> config_;
-  std::vector<Request::Key> load_keys_;
+  std::shared_ptr<std::vector<Request::Key>> load_keys_;
 };
 
 class PhasedWorkload::Producer {
@@ -47,18 +47,22 @@ class PhasedWorkload::Producer {
 
  private:
   friend class PhasedWorkload;
-  Producer(std::shared_ptr<const PhasedWorkload> workload, ProducerID id,
-           size_t num_producers, uint32_t prng_seed);
+  Producer(std::shared_ptr<const WorkloadConfig> config,
+           std::shared_ptr<const std::vector<Request::Key>> load_keys,
+           ProducerID id, size_t num_producers, uint32_t prng_seed);
 
   Request::Key ChooseKey(const std::unique_ptr<Chooser>& chooser);
 
   ProducerID id_;
   size_t num_producers_;
-  std::shared_ptr<const PhasedWorkload> workload_;
+  std::shared_ptr<const WorkloadConfig> config_;
   std::mt19937 prng_;
 
   std::vector<Phase> phases_;
   PhaseID current_phase_;
+
+  std::shared_ptr<const std::vector<Request::Key>> load_keys_;
+  size_t num_load_keys_;
 
   // Stores all the keys this producer will eventually insert.
   std::vector<Request::Key> insert_keys_;

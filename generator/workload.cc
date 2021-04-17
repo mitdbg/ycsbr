@@ -25,9 +25,9 @@ namespace gen {
 
 using Producer = PhasedWorkload::Producer;
 
-std::shared_ptr<PhasedWorkload> PhasedWorkload::LoadFrom(
+std::unique_ptr<PhasedWorkload> PhasedWorkload::LoadFrom(
     const std::filesystem::path& config_file, const uint32_t prng_seed) {
-  return std::make_shared<PhasedWorkload>(WorkloadConfig::LoadFrom(config_file),
+  return std::make_unique<PhasedWorkload>(WorkloadConfig::LoadFrom(config_file),
                                           prng_seed);
 }
 
@@ -36,17 +36,19 @@ PhasedWorkload::PhasedWorkload(std::shared_ptr<WorkloadConfig> config,
     : prng_(prng_seed),
       prng_seed_(prng_seed),
       config_(std::move(config)),
-      load_keys_(config_->GetNumLoadRecords(), 0) {
+      load_keys_(std::make_shared<std::vector<Request::Key>>(
+          config_->GetNumLoadRecords(), 0)) {
   auto load_gen = config_->GetLoadGenerator();
-  load_gen->Generate(prng_, &load_keys_, 0);
-  ApplyPhaseAndProducerIDs(load_keys_.begin(), load_keys_.end(), /*phase_id=*/0,
+  load_gen->Generate(prng_, load_keys_.get(), 0);
+  ApplyPhaseAndProducerIDs(load_keys_->begin(), load_keys_->end(),
+                           /*phase_id=*/0,
                            /*producer_id=*/0);
 }
 
 BulkLoadTrace PhasedWorkload::GetLoadTrace() const {
   Trace::Options options;
   options.value_size = config_->GetRecordSizeBytes() - sizeof(Request::Key);
-  return BulkLoadTrace::LoadFromKeys(load_keys_, options);
+  return BulkLoadTrace::LoadFromKeys(*load_keys_, options);
 }
 
 std::vector<Producer> PhasedWorkload::GetProducers(
@@ -55,49 +57,54 @@ std::vector<Producer> PhasedWorkload::GetProducers(
   producers.reserve(num_producers);
   for (ProducerID id = 0; id < num_producers; ++id) {
     producers.push_back(
-        Producer(shared_from_this(), id, num_producers, prng_seed_ ^ id));
+        // Each Producer's workload should be deterministic, but we want each
+        // Producer to produce different requests from each other. So we include
+        // the producer ID in its seed.
+        Producer(config_, load_keys_, id, num_producers, prng_seed_ ^ id));
   }
   return producers;
 }
 
-Producer::Producer(std::shared_ptr<const PhasedWorkload> workload,
+Producer::Producer(std::shared_ptr<const WorkloadConfig> config,
+                   std::shared_ptr<const std::vector<Request::Key>> load_keys,
                    const ProducerID id, const size_t num_producers,
                    const uint32_t prng_seed)
     : id_(id),
       num_producers_(num_producers),
-      workload_(std::move(workload)),
+      config_(std::move(config)),
       prng_(prng_seed),
       current_phase_(0),
+      load_keys_(std::move(load_keys)),
+      num_load_keys_(load_keys_->size()),
       next_insert_key_index_(0),
       op_dist_(0, 99) {}
 
 void Producer::Prepare() {
   // Set up the workload phases.
-  const size_t num_phases = workload_->config_->GetNumPhases();
+  const size_t num_phases = config_->GetNumPhases();
   phases_.reserve(num_phases);
   for (PhaseID phase_id = 0; phase_id < num_phases; ++phase_id) {
-    phases_.push_back(
-        workload_->config_->GetPhase(phase_id, id_, num_producers_));
+    phases_.push_back(config_->GetPhase(phase_id, id_, num_producers_));
   }
 
   // Generate the inserts.
   size_t insert_index = 0;
   for (auto& phase : phases_) {
     if (phase.num_inserts == 0) continue;
-    auto generator = workload_->config_->GetGeneratorForPhase(phase);
+    auto generator = config_->GetGeneratorForPhase(phase);
     assert(generator != nullptr);
     insert_keys_.resize(insert_keys_.size() + phase.num_inserts);
     generator->Generate(prng_, &insert_keys_, insert_index);
     ApplyPhaseAndProducerIDs(
         insert_keys_.begin() + insert_index,
         insert_keys_.begin() + insert_index + phase.num_inserts,
-        // We add 1 because the ID 0 is reserved for the initial load.
+        // We add 1 because ID 0 is reserved for the initial load.
         phase.phase_id + 1, id_ + 1);
     insert_index = insert_keys_.size();
   }
 
   // Update the phase chooser item counts.
-  size_t count = workload_->load_keys_.size();
+  size_t count = load_keys_->size();
   bool first_iter = true;
   for (auto& phase : phases_) {
     if (!first_iter) {
@@ -109,13 +116,11 @@ void Producer::Prepare() {
 }
 
 Request::Key Producer::ChooseKey(const std::unique_ptr<Chooser>& chooser) {
-  // TODO: We should probably also store `num_load_keys` in the producer.
   const size_t index = chooser->Next(prng_);
-  const size_t num_load_keys = workload_->load_keys_.size();
-  if (index < num_load_keys) {
-    return workload_->load_keys_[index];
+  if (index < num_load_keys_) {
+    return (*load_keys_)[index];
   }
-  return insert_keys_[index - num_load_keys];
+  return insert_keys_[index - num_load_keys_];
 }
 
 Request Producer::Next() {
@@ -151,6 +156,8 @@ Request Producer::Next() {
     }
 
     case Request::Operation::kScan: {
+      // We add 1 to the chosen scan length because `Chooser` instances always
+      // return values in a 0-based range.
       to_return =
           Request(Request::Operation::kScan, ChooseKey(this_phase.scan_chooser),
                   this_phase.scan_length_chooser->Next(prng_) + 1, nullptr, 0);
