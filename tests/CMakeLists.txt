@@ -16,6 +16,7 @@ FetchContent_MakeAvailable(googletest benchmark)
 
 add_executable(test_runner
   benchmark_test.cc
+  generator_config_test.cc
   generator_test.cc
   meter_test.cc
   session_test.cc

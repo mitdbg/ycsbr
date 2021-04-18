@@ -187,6 +187,10 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
     phase.scan_thres = phase_config[kScanOpKey][kProportionKey].as<uint32_t>();
     phase.max_scan_length =
         phase_config[kScanOpKey][kScanMaxLengthKey].as<size_t>();
+    if (phase.max_scan_length == 0) {
+      throw std::invalid_argument(
+          "The maximum scan length must be at least 1.");
+    }
 
     // Create the scan key chooser.
     const auto& dist = phase_config[kScanOpKey][kDistributionKey];
