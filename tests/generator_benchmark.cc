@@ -4,11 +4,11 @@
 #include <random>
 #include <vector>
 
+#include "../generator/hash.h"
 #include "../generator/sampling.h"
-#include "../generator/zipfian.h"
+#include "../generator/zipfian_chooser.h"
 #include "benchmark/benchmark.h"
 #include "db_interface.h"
-#include "ycsbr/gen/util.h"
 #include "ycsbr/gen/workload.h"
 #include "ycsbr/session.h"
 
@@ -96,9 +96,10 @@ void BM_MathPow(benchmark::State& state) {
 
 void BM_ZipfianGen(benchmark::State& state) {
   const size_t item_count = state.range(0);
-  Zipfian zipf(item_count, 0.99, /*seed=*/42);
+  std::mt19937 prng(42);
+  ZipfianChooser zipf(item_count, 0.99);
   for (auto _ : state) {
-    benchmark::DoNotOptimize(zipf());
+    benchmark::DoNotOptimize(zipf.Next(prng));
   }
 }
 

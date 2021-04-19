@@ -47,7 +47,6 @@ if(YR_BUILD_GENERATOR)
       ${srcdir}/gen/keygen.h
       ${srcdir}/gen/phase.h
       ${srcdir}/gen/types.h
-      ${srcdir}/gen/util.h
       ${srcdir}/gen/valuegen.h
       ${srcdir}/gen/workload.h)
   target_link_libraries(ycsbr-gen PUBLIC ycsbr)

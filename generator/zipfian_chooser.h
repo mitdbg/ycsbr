@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <random>
 
+#include "ycsbr/gen/chooser.h"
+
 namespace ycsbr {
 namespace gen {
 
@@ -13,17 +15,20 @@ namespace gen {
 // turn uses the algorithm presented in
 //   J. Gray et al. Quickly generating billion-record synthetic databases. In
 //   SIGMOD'94.
-class Zipfian {
+class ZipfianChooser : public Chooser {
  public:
-  Zipfian(size_t item_count, double theta, uint64_t seed);
+  // The value of `theta` must be in the exclusive range (0, 1).
+  ZipfianChooser(size_t item_count, double theta);
 
   // Get a sample from the distribution. The returned value will be in the range
   // [0, item_count).
-  size_t operator()();
+  size_t Next(std::mt19937& prng) override;
 
-  // This requires some computation and can be slow if the difference between
-  // `new_item_count` and the current item count is large.
-  void IncreaseItemCount(size_t new_item_count);
+  // This requires some computation and can be slow if `delta` is large.
+  void IncreaseItemCountBy(size_t delta) override;
+
+  // Will recompute constants for `new_item_count`.
+  void SetItemCount(size_t new_item_count) override;
 
  private:
   static double ComputeZetaN(size_t item_count, double theta,
@@ -40,14 +45,13 @@ class Zipfian {
   double zeta_n_;
   double eta_;
 
-  std::mt19937 prng_;
   std::uniform_real_distribution<double> dist_;
 };
 
 // Implementation details follow.
 
-inline Zipfian::Zipfian(const size_t item_count, const double theta,
-                        const uint64_t seed)
+inline ZipfianChooser::ZipfianChooser(const size_t item_count,
+                                      const double theta)
     : item_count_(item_count),
       theta_(theta),
       alpha_(1.0 / (1.0 - theta)),
@@ -55,13 +59,12 @@ inline Zipfian::Zipfian(const size_t item_count, const double theta,
       zeta2theta_(ComputeZetaN(2, theta)),
       zeta_n_(0.0),
       eta_(0.0),
-      prng_(seed),
       dist_(0.0, 1.0) {
   UpdateComputedConstants();
 }
 
-inline size_t Zipfian::operator()() {
-  const double u = dist_(prng_);
+inline size_t ZipfianChooser::Next(std::mt19937& prng) {
+  const double u = dist_(prng);
   const double uz = u * zeta_n_;
   if (uz < 1.0) return 0;
   if (uz < thres_) return 1;
@@ -69,17 +72,27 @@ inline size_t Zipfian::operator()() {
                              std::pow(eta_ * u - eta_ + 1, alpha_));
 }
 
-inline void Zipfian::IncreaseItemCount(const size_t new_item_count) {
-  assert(new_item_count > item_count_);
+inline void ZipfianChooser::IncreaseItemCountBy(const size_t delta) {
   const size_t prev_item_count = item_count_;
   const double prev_zeta_n = zeta_n_;
-  item_count_ = new_item_count;
+  item_count_ += delta;
   UpdateComputedConstants(prev_item_count, prev_zeta_n);
 }
 
-inline double Zipfian::ComputeZetaN(const size_t item_count, const double theta,
-                                    const size_t prev_item_count,
-                                    const double prev_zeta_n) {
+inline void ZipfianChooser::SetItemCount(const size_t new_item_count) {
+  if (new_item_count > item_count_) {
+    IncreaseItemCountBy(new_item_count - item_count_);
+    return;
+  }
+  assert(new_item_count > 0);
+  item_count_ = new_item_count;
+  UpdateComputedConstants();
+}
+
+inline double ZipfianChooser::ComputeZetaN(const size_t item_count,
+                                           const double theta,
+                                           const size_t prev_item_count,
+                                           const double prev_zeta_n) {
   assert(item_count > prev_item_count);
   size_t item_count_so_far = prev_item_count;
   double zeta_so_far = prev_zeta_n;
@@ -90,8 +103,8 @@ inline double Zipfian::ComputeZetaN(const size_t item_count, const double theta,
   return zeta_so_far;
 }
 
-inline void Zipfian::UpdateComputedConstants(const size_t prev_item_count,
-                                             const double prev_zeta_n) {
+inline void ZipfianChooser::UpdateComputedConstants(
+    const size_t prev_item_count, const double prev_zeta_n) {
   zeta_n_ = ComputeZetaN(item_count_, theta_, prev_item_count, prev_zeta_n);
   eta_ = (1 - std::pow(2.0 / item_count_, 1.0 - theta_)) /
          (1.0 - zeta2theta_ / zeta_n_);

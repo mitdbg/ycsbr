@@ -7,6 +7,7 @@
 #include "uniform_chooser.h"
 #include "uniform_keygen.h"
 #include "yaml-cpp/yaml.h"
+#include "zipfian_chooser.h"
 
 namespace {
 
@@ -78,6 +79,28 @@ bool ValidateConfig(const YAML::Node& raw_config) {
   }
 
   return true;
+}
+
+std::unique_ptr<ycsbr::gen::Chooser> CreateChooser(
+    const YAML::Node& distribution_config, const std::string& operation_name,
+    const size_t item_count) {
+  const std::string& dist_type =
+      distribution_config[kDistributionTypeKey].as<std::string>();
+
+  if (dist_type == kUniformDist) {
+    return std::make_unique<ycsbr::gen::UniformChooser>(item_count);
+
+  } else if (dist_type == kZipfianDist) {
+    const double theta = distribution_config[kZipfianThetaKey].as<double>();
+    if (theta <= 0.0 || theta >= 1.0) {
+      throw std::invalid_argument("Zipfian theta must be in the range (0, 1).");
+    }
+    return std::make_unique<ycsbr::gen::ZipfianChooser>(item_count, theta);
+
+  } else {
+    throw std::invalid_argument("Unsupported " + operation_name +
+                                " distribution: " + dist_type);
+  }
 }
 
 }  // namespace
@@ -174,14 +197,8 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
     phase.read_thres = phase_config[kReadOpKey][kProportionKey].as<uint32_t>();
 
     // Create the read key chooser.
-    const auto& dist = phase_config[kReadOpKey][kDistributionKey];
-    const std::string& dist_type = dist[kDistributionTypeKey].as<std::string>();
-    if (dist_type == kUniformDist) {
-      phase.read_chooser = std::make_unique<UniformChooser>(num_load_records);
-    } else {
-      throw std::invalid_argument("Unsupported read distribution: " +
-                                  dist_type);
-    }
+    phase.read_chooser = CreateChooser(
+        phase_config[kReadOpKey][kDistributionKey], "read", num_load_records);
   }
   if (phase_config[kScanOpKey]) {
     phase.scan_thres = phase_config[kScanOpKey][kProportionKey].as<uint32_t>();
@@ -193,14 +210,9 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
     }
 
     // Create the scan key chooser.
-    const auto& dist = phase_config[kScanOpKey][kDistributionKey];
-    const std::string& dist_type = dist[kDistributionTypeKey].as<std::string>();
-    if (dist_type == kUniformDist) {
-      phase.scan_chooser = std::make_unique<UniformChooser>(num_load_records);
-    } else {
-      throw std::invalid_argument("Unsupported scan distribution: " +
-                                  dist_type);
-    }
+    phase.scan_chooser = CreateChooser(
+        phase_config[kScanOpKey][kDistributionKey], "scan", num_load_records);
+
     // We need to add 1 because the UniformChooser returns values in a 0-based
     // exclusive upper range.
     phase.scan_length_chooser =
@@ -211,14 +223,9 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
         phase_config[kUpdateOpKey][kProportionKey].as<uint32_t>();
 
     // Create the update key chooser.
-    const auto& dist = phase_config[kUpdateOpKey][kDistributionKey];
-    const std::string& dist_type = dist[kDistributionTypeKey].as<std::string>();
-    if (dist_type == kUniformDist) {
-      phase.update_chooser = std::make_unique<UniformChooser>(num_load_records);
-    } else {
-      throw std::invalid_argument("Unsupported update distribution: " +
-                                  dist_type);
-    }
+    phase.update_chooser =
+        CreateChooser(phase_config[kUpdateOpKey][kDistributionKey], "update",
+                      num_load_records);
   }
   if (phase_config[kInsertOpKey]) {
     insert_pct = phase_config[kInsertOpKey][kProportionKey].as<uint32_t>();

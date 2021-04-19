@@ -1,4 +1,6 @@
-#include "../generator/zipfian.h"
+#include "../generator/zipfian_chooser.h"
+
+#include <random>
 
 #include "gtest/gtest.h"
 
@@ -11,10 +13,11 @@ TEST(ZipfianTest, Simple) {
   constexpr size_t repetitions = 100000;
   constexpr size_t epsilon = 100;
 
-  Zipfian zipf(item_count, 0.99, 42);
+  std::mt19937 prng(42);
+  ZipfianChooser zipf(item_count, 0.99);
   std::vector<size_t> freq(item_count, 0);
   for (size_t i = 0; i < repetitions; ++i) {
-    ++freq[zipf()];
+    ++freq[zipf.Next(prng)];
   }
   for (size_t i = 1; i < item_count; ++i) {
     ASSERT_LE(freq[i], freq[i - 1] + epsilon);
