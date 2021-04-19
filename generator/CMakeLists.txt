@@ -16,6 +16,9 @@ target_sources(ycsbr-gen
   PRIVATE
     config_impl.cc
     config_impl.h
+    hash.h
+    hotspot_keygen.cc
+    hotspot_keygen.h
     sampling-inl.h
     sampling.h
     uniform_chooser.h

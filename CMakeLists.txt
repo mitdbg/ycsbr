@@ -45,6 +45,7 @@ if(YR_BUILD_GENERATOR)
       ${srcdir}/gen/chooser.h
       ${srcdir}/gen/config.h
       ${srcdir}/gen/keygen.h
+      ${srcdir}/gen/keyrange.h
       ${srcdir}/gen/phase.h
       ${srcdir}/gen/types.h
       ${srcdir}/gen/valuegen.h

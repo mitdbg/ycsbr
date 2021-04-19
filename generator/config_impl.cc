@@ -4,12 +4,16 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "hotspot_keygen.h"
 #include "uniform_chooser.h"
 #include "uniform_keygen.h"
 #include "yaml-cpp/yaml.h"
+#include "ycsbr/gen/keyrange.h"
 #include "zipfian_chooser.h"
 
 namespace {
+
+using namespace ycsbr;
 
 // Top-level keys.
 const std::string kLoadConfigKey = "load";
@@ -39,8 +43,8 @@ const std::string kRangeMinKey = "range_min";
 const std::string kRangeMaxKey = "range_max";
 const std::string kZipfianThetaKey = "theta";
 const std::string kHotspotProportionKey = "hot_proportion_pct";
-const std::string kHotRangeMinKey = "hot_range_min";
-const std::string kHotRangeMaxKey = "hot_range_max";
+const std::string kHotRangeMinKey = "hot_" + kRangeMinKey;
+const std::string kHotRangeMaxKey = "hot_" + kRangeMaxKey;
 
 // Only does a quick high-level structural validation. The semantic validation
 // is done when phases are retrieved.
@@ -81,26 +85,64 @@ bool ValidateConfig(const YAML::Node& raw_config) {
   return true;
 }
 
-std::unique_ptr<ycsbr::gen::Chooser> CreateChooser(
+std::unique_ptr<gen::Chooser> CreateChooser(
     const YAML::Node& distribution_config, const std::string& operation_name,
     const size_t item_count) {
   const std::string& dist_type =
       distribution_config[kDistributionTypeKey].as<std::string>();
 
   if (dist_type == kUniformDist) {
-    return std::make_unique<ycsbr::gen::UniformChooser>(item_count);
+    return std::make_unique<gen::UniformChooser>(item_count);
 
   } else if (dist_type == kZipfianDist) {
     const double theta = distribution_config[kZipfianThetaKey].as<double>();
     if (theta <= 0.0 || theta >= 1.0) {
       throw std::invalid_argument("Zipfian theta must be in the range (0, 1).");
     }
-    return std::make_unique<ycsbr::gen::ScatteredZipfianChooser>(item_count,
-                                                                 theta);
+    return std::make_unique<gen::ScatteredZipfianChooser>(item_count, theta);
 
   } else {
     throw std::invalid_argument("Unsupported " + operation_name +
                                 " distribution: " + dist_type);
+  }
+}
+
+gen::KeyRange ParseKeyRange(const YAML::Node& config,
+                            const std::string& min_key_name,
+                            const std::string& max_key_name) {
+  const Request::Key range_min = config[min_key_name].as<Request::Key>();
+  const Request::Key range_max = config[max_key_name].as<Request::Key>();
+  if (range_min > range_max) {
+    throw std::invalid_argument(
+        min_key_name + " and " + max_key_name +
+        " specify an invalid range (min is greater than max).");
+  }
+  return gen::KeyRange(range_min, range_max);
+}
+
+std::unique_ptr<gen::Generator> CreateGenerator(
+    const YAML::Node& distribution_config, const size_t num_keys) {
+  const std::string dist_type =
+      distribution_config[kDistributionTypeKey].as<std::string>();
+  if (dist_type == kUniformDist) {
+    const gen::KeyRange range =
+        ParseKeyRange(distribution_config, kRangeMinKey, kRangeMaxKey);
+    return std::make_unique<gen::UniformGenerator>(num_keys, range.min(),
+                                                   range.max());
+
+  } else if (dist_type == kHotspotDist) {
+    const gen::KeyRange overall =
+        ParseKeyRange(distribution_config, kRangeMinKey, kRangeMaxKey);
+    const gen::KeyRange hot =
+        ParseKeyRange(distribution_config, kHotRangeMinKey, kHotRangeMaxKey);
+    const uint32_t hot_proportion_pct =
+        distribution_config[kHotspotProportionKey].as<uint32_t>();
+    return std::make_unique<gen::HotspotGenerator>(
+        num_keys, hot_proportion_pct, std::move(overall), std::move(hot));
+
+  } else {
+    throw std::invalid_argument("Unsupported load/insert distribution: " +
+                                dist_type);
   }
 }
 
@@ -153,18 +195,7 @@ std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
   if (!load_dist) {
     throw std::invalid_argument("Missing load distribution configuration.");
   }
-  const std::string dist_type =
-      load_dist[kDistributionTypeKey].as<std::string>();
-  if (dist_type == kUniformDist) {
-    const size_t num_records = GetNumLoadRecords();
-    const Request::Key range_min = load_dist[kRangeMinKey].as<Request::Key>();
-    const Request::Key range_max = load_dist[kRangeMaxKey].as<Request::Key>();
-    return std::make_unique<UniformGenerator>(num_records, range_min,
-                                              range_max);
-
-  } else {
-    throw std::invalid_argument("Unsupported load distribution: " + dist_type);
-  }
+  return CreateGenerator(load_dist, GetNumLoadRecords());
 }
 
 size_t WorkloadConfigImpl::GetNumPhases() const {
@@ -266,16 +297,7 @@ std::unique_ptr<Generator> WorkloadConfigImpl::GetGeneratorForPhase(
   }
 
   const YAML::Node& dist = phase_config[kInsertOpKey][kDistributionKey];
-  const std::string dist_type = dist[kDistributionTypeKey].as<std::string>();
-  if (dist_type == kUniformDist) {
-    const Request::Key range_min = dist[kRangeMinKey].as<Request::Key>();
-    const Request::Key range_max = dist[kRangeMaxKey].as<Request::Key>();
-    return std::make_unique<UniformGenerator>(phase.num_inserts, range_min,
-                                              range_max);
-  } else {
-    throw std::invalid_argument("Unsupported insert distribution: " +
-                                dist_type);
-  }
+  return CreateGenerator(dist, phase.num_inserts);
 }
 
 }  // namespace gen
