@@ -39,8 +39,9 @@ class ZipfianChooser : public Chooser {
   static double ComputeZetaN(size_t item_count, double theta,
                              size_t prev_item_count = 0,
                              double prev_zeta_n = 0.0);
-  void UpdateComputedConstants(size_t prev_item_count = 0,
-                               double prev_zeta_n = 0.0);
+  // Computes `zeta(n)`, using previously cached values if possible.
+  void UpdateZetaNWithCaching();
+  void UpdateETA();
 
   size_t item_count_;
   double theta_;
@@ -73,7 +74,8 @@ inline ZipfianChooser::ZipfianChooser(const size_t item_count,
       zeta_n_(0.0),
       eta_(0.0),
       dist_(0.0, 1.0) {
-  UpdateComputedConstants();
+  UpdateZetaNWithCaching();
+  UpdateETA();
 }
 
 inline ScatteredZipfianChooser::ScatteredZipfianChooser(const size_t item_count,
@@ -108,17 +110,15 @@ inline void ZipfianChooser::IncreaseItemCountBy(const size_t delta) {
   const size_t prev_item_count = item_count_;
   const double prev_zeta_n = zeta_n_;
   item_count_ += delta;
-  UpdateComputedConstants(prev_item_count, prev_zeta_n);
+  zeta_n_ = ComputeZetaN(item_count_, theta_, prev_item_count, prev_zeta_n);
+  UpdateETA();
 }
 
 inline void ZipfianChooser::SetItemCount(const size_t new_item_count) {
-  if (new_item_count > item_count_) {
-    IncreaseItemCountBy(new_item_count - item_count_);
-    return;
-  }
   assert(new_item_count > 0);
   item_count_ = new_item_count;
-  UpdateComputedConstants();
+  UpdateZetaNWithCaching();
+  UpdateETA();
 }
 
 inline size_t ZipfianChooser::item_count() const { return item_count_; }
@@ -137,9 +137,7 @@ inline double ZipfianChooser::ComputeZetaN(const size_t item_count,
   return zeta_so_far;
 }
 
-inline void ZipfianChooser::UpdateComputedConstants(
-    const size_t prev_item_count, const double prev_zeta_n) {
-  zeta_n_ = ComputeZetaN(item_count_, theta_, prev_item_count, prev_zeta_n);
+inline void ZipfianChooser::UpdateETA() {
   eta_ = (1 - std::pow(2.0 / item_count_, 1.0 - theta_)) /
          (1.0 - zeta2theta_ / zeta_n_);
 }

@@ -22,5 +22,6 @@ target_sources(ycsbr-gen
     uniform_keygen.cc
     uniform_keygen.h
     workload.cc
+    zipfian_chooser.cc
     zipfian_chooser.h)
 target_link_libraries(ycsbr-gen PRIVATE yaml-cpp)
