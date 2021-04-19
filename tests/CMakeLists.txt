@@ -18,6 +18,7 @@ add_executable(test_runner
   benchmark_test.cc
   generator_config_test.cc
   generator_test.cc
+  keyrange_test.cc
   meter_test.cc
   session_test.cc
   workload_test.cc

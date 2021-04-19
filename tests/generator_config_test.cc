@@ -206,4 +206,41 @@ TEST(GeneratorConfigTest, InvalidInserts) {
   ASSERT_THROW(ParseAndPrepare(invalid_distribution), std::invalid_argument);
 }
 
+TEST(GeneratorConfigTest, ValidDists) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  num_records: 1000\n"
+      "  distribution:\n"
+      "    type: uniform\n"
+      "    range_min: 100\n"
+      "    range_max: 100000000\n"
+      "run:\n"
+      "- num_requests: 1000000\n"
+      "  read:\n"
+      "    proportion_pct: 20\n"
+      "    distribution:\n"
+      "      type: uniform\n"
+      "  update:\n"
+      "    proportion_pct: 50\n"
+      "    distribution:\n"
+      "      type: zipfian\n"
+      "      theta: 0.95\n"
+      "  scan:\n"
+      "    max_length: 100\n"
+      "    proportion_pct: 20\n"
+      "    distribution:\n"
+      "      type: uniform\n"
+      "  insert:\n"
+      "    proportion_pct: 10\n"
+      "    distribution:\n"
+      "      type: hotspot\n"
+      "      range_min: 10\n"
+      "      range_max: 2000000\n"
+      "      hot_proportion_pct: 90\n"
+      "      hot_range_min: 10\n"
+      "      hot_range_max: 500000\n";
+  ASSERT_NO_THROW(ParseAndPrepare(config));
+}
+
 }  // namespace

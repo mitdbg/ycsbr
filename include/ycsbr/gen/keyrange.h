@@ -2,6 +2,8 @@
 
 #include <cassert>
 #include <limits>
+#include <optional>
+#include <utility>
 
 #include "ycsbr/request.h"
 
