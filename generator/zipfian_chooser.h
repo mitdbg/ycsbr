@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <random>
 
+#include "hash.h"
 #include "ycsbr/gen/chooser.h"
 
 namespace ycsbr {
@@ -21,7 +22,8 @@ class ZipfianChooser : public Chooser {
   ZipfianChooser(size_t item_count, double theta);
 
   // Get a sample from the distribution. The returned value will be in the range
-  // [0, item_count).
+  // [0, item_count). Note that index 0 will be the most popular, followed by
+  // index 1, and so on.
   size_t Next(std::mt19937& prng) override;
 
   // This requires some computation and can be slow if `delta` is large.
@@ -29,6 +31,9 @@ class ZipfianChooser : public Chooser {
 
   // Will recompute constants for `new_item_count`.
   void SetItemCount(size_t new_item_count) override;
+
+ protected:
+  size_t item_count() const;
 
  private:
   static double ComputeZetaN(size_t item_count, double theta,
@@ -48,6 +53,14 @@ class ZipfianChooser : public Chooser {
   std::uniform_real_distribution<double> dist_;
 };
 
+// Returns Zipfian-distributed values in the range [0, item_count), but ensuring
+// that the popular values are scattered throughout the range.
+class ScatteredZipfianChooser : public ZipfianChooser {
+ public:
+  ScatteredZipfianChooser(size_t item_count, double theta);
+  size_t Next(std::mt19937& prng) override;
+};
+
 // Implementation details follow.
 
 inline ZipfianChooser::ZipfianChooser(const size_t item_count,
@@ -63,6 +76,10 @@ inline ZipfianChooser::ZipfianChooser(const size_t item_count,
   UpdateComputedConstants();
 }
 
+inline ScatteredZipfianChooser::ScatteredZipfianChooser(const size_t item_count,
+                                                        const double theta)
+    : ZipfianChooser(item_count, theta) {}
+
 inline size_t ZipfianChooser::Next(std::mt19937& prng) {
   const double u = dist_(prng);
   const double uz = u * zeta_n_;
@@ -70,6 +87,21 @@ inline size_t ZipfianChooser::Next(std::mt19937& prng) {
   if (uz < thres_) return 1;
   return static_cast<size_t>(item_count_ *
                              std::pow(eta_ * u - eta_ + 1, alpha_));
+}
+
+inline size_t ScatteredZipfianChooser::Next(std::mt19937& prng) {
+  // Most of the generator code assumes that we're running on a 64-bit system.
+  static_assert(sizeof(uint64_t) == sizeof(size_t));
+  const uint64_t hashed_choice = FNVHash64(ZipfianChooser::Next(prng));
+#ifdef __SIZEOF_INT128__
+  // Fast modulo for 64-bit integers. See
+  // https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
+  return static_cast<uint64_t>((static_cast<__uint128_t>(hashed_choice) *
+                                static_cast<__uint128_t>(item_count())) >>
+                               64);
+#else
+  return hashed_choice % item_count();
+#endif
 }
 
 inline void ZipfianChooser::IncreaseItemCountBy(const size_t delta) {
@@ -88,6 +120,8 @@ inline void ZipfianChooser::SetItemCount(const size_t new_item_count) {
   item_count_ = new_item_count;
   UpdateComputedConstants();
 }
+
+inline size_t ZipfianChooser::item_count() const { return item_count_; }
 
 inline double ZipfianChooser::ComputeZetaN(const size_t item_count,
                                            const double theta,

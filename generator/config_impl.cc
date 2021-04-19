@@ -95,7 +95,8 @@ std::unique_ptr<ycsbr::gen::Chooser> CreateChooser(
     if (theta <= 0.0 || theta >= 1.0) {
       throw std::invalid_argument("Zipfian theta must be in the range (0, 1).");
     }
-    return std::make_unique<ycsbr::gen::ZipfianChooser>(item_count, theta);
+    return std::make_unique<ycsbr::gen::ScatteredZipfianChooser>(item_count,
+                                                                 theta);
 
   } else {
     throw std::invalid_argument("Unsupported " + operation_name +
@@ -178,8 +179,10 @@ size_t WorkloadConfigImpl::GetNumPhases() const {
 Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
                                    const ProducerID producer_id,
                                    const size_t num_producers) const {
+  // We set the item counts of all choosers to this dummy initial value because
+  // they will be properly set in Producer::Prepare().
+  const size_t initial_chooser_size = 1;
   const YAML::Node& phase_config = raw_config_[kRunConfigKey][phase_id];
-  const size_t num_load_records = GetNumLoadRecords();
   Phase phase(phase_id);
 
   // Compute the number of requests for this producer.
@@ -197,8 +200,9 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
     phase.read_thres = phase_config[kReadOpKey][kProportionKey].as<uint32_t>();
 
     // Create the read key chooser.
-    phase.read_chooser = CreateChooser(
-        phase_config[kReadOpKey][kDistributionKey], "read", num_load_records);
+    phase.read_chooser =
+        CreateChooser(phase_config[kReadOpKey][kDistributionKey], "read",
+                      initial_chooser_size);
   }
   if (phase_config[kScanOpKey]) {
     phase.scan_thres = phase_config[kScanOpKey][kProportionKey].as<uint32_t>();
@@ -210,8 +214,9 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
     }
 
     // Create the scan key chooser.
-    phase.scan_chooser = CreateChooser(
-        phase_config[kScanOpKey][kDistributionKey], "scan", num_load_records);
+    phase.scan_chooser =
+        CreateChooser(phase_config[kScanOpKey][kDistributionKey], "scan",
+                      initial_chooser_size);
 
     // We need to add 1 because the UniformChooser returns values in a 0-based
     // exclusive upper range.
@@ -225,7 +230,7 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
     // Create the update key chooser.
     phase.update_chooser =
         CreateChooser(phase_config[kUpdateOpKey][kDistributionKey], "update",
-                      num_load_records);
+                      initial_chooser_size);
   }
   if (phase_config[kInsertOpKey]) {
     insert_pct = phase_config[kInsertOpKey][kProportionKey].as<uint32_t>();

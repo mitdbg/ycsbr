@@ -115,14 +115,11 @@ void Producer::Prepare() {
     insert_index = insert_keys_.size();
   }
 
-  // Update the phase chooser item counts.
+  // Set the phase chooser item counts based on the number of inserts the
+  // producer will make in each phase.
   size_t count = load_keys_->size();
-  bool first_iter = true;
   for (auto& phase : phases_) {
-    if (!first_iter) {
-      phase.SetItemCount(count);
-    }
-    first_iter = false;
+    phase.SetItemCount(count);
     count += phase.num_inserts;
   }
 }
