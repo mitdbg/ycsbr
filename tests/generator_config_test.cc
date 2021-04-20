@@ -243,4 +243,23 @@ TEST(GeneratorConfigTest, ValidDists) {
   ASSERT_NO_THROW(ParseAndPrepare(config));
 }
 
+TEST(GeneratorConfigTest, KeyTooLarge) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  num_records: 1000\n"
+      "  distribution:\n"
+      "    type: uniform\n"
+      "    range_min: 1000\n"
+      "    range_max: 281474976710656\n"
+      "run:\n"
+      "- num_requests: 1000000\n"
+      "  scan:\n"
+      "    max_length: 10\n"
+      "    proportion_pct: 100\n"
+      "    distribution:\n"
+      "      type: uniform\n";
+  ASSERT_THROW(ParseAndPrepare(config), std::invalid_argument);
+}
+
 }  // namespace

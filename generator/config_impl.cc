@@ -46,6 +46,9 @@ const std::string kHotspotProportionKey = "hot_proportion_pct";
 const std::string kHotRangeMinKey = "hot_" + kRangeMinKey;
 const std::string kHotRangeMaxKey = "hot_" + kRangeMaxKey;
 
+// We reserve 16 bits for tracking the phase IDs and producer IDs.
+const Request::Key kMaxKey = (1ULL << 48) - 1;
+
 // Only does a quick high-level structural validation. The semantic validation
 // is done when phases are retrieved.
 bool ValidateConfig(const YAML::Node& raw_config) {
@@ -116,6 +119,9 @@ gen::KeyRange ParseKeyRange(const YAML::Node& config,
     throw std::invalid_argument(
         min_key_name + " and " + max_key_name +
         " specify an invalid range (min is greater than max).");
+  }
+  if (range_min > kMaxKey || range_max > kMaxKey) {
+    throw std::invalid_argument("Key values cannot exceed 2^48 - 1.");
   }
   return gen::KeyRange(range_min, range_max);
 }

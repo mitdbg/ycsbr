@@ -11,7 +11,6 @@ inline ThreadPool::ThreadPool(size_t num_threads,
     : shutdown_(false),
       on_start_(std::move(on_start)),
       on_shutdown_(std::move(on_shutdown)) {
-  assert(num_threads > 0);
   for (size_t i = 0; i < num_threads; ++i) {
     threads_.emplace_back(&ThreadPool::ThreadMain, this);
   }
@@ -24,7 +23,6 @@ inline ThreadPool::ThreadPool(size_t num_threads,
     : shutdown_(false),
       on_start_(std::move(on_start)),
       on_shutdown_(std::move(on_shutdown)) {
-  assert(num_threads > 0);
   assert(num_threads == thread_to_core.size());
   for (size_t i = 0; i < num_threads; ++i) {
     threads_.emplace_back(&ThreadPool::ThreadMainOnCore, this,
