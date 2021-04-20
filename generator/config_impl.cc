@@ -205,7 +205,7 @@ std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
 
 size_t WorkloadConfigImpl::GetNumPhases() const {
   const size_t num_phases = raw_config_[kRunConfigKey].size();
-  if (num_phases > std::numeric_limits<uint8_t>::max() - 1) {
+  if (num_phases > std::numeric_limits<uint8_t>::max()) {
     throw std::invalid_argument(
         "Too many workload phases (only 255 are supported).");
   }
