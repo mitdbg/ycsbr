@@ -210,12 +210,72 @@ void BM_PhasedWorkloadOverheadUniform(benchmark::State& state) {
       benchmark::Counter::kIsRate | benchmark::Counter::kInvert);
 }
 
+void BM_MultiphaseWorkloadOverhead(benchmark::State& state) {
+  constexpr size_t num_requests = 10000000;
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  num_records: 20000000\n"
+      "  distribution:\n"
+      "    type: uniform\n"
+      "    range_min: 100\n"
+      "    range_max: 100000000\n"
+      "run:\n"
+      "- num_requests: 5000000\n"
+      "  read:\n"
+      "    proportion_pct: 90\n"
+      "    distribution:\n"
+      "      type: zipfian\n"
+      "      theta: 0.99\n"
+      "  insert:\n"
+      "    proportion_pct: 10\n"
+      "    distribution:\n"
+      "      type: uniform\n"
+      "      range_min: 100\n"
+      "      range_max: 100000000\n";
+      "- num_requests: 5000000\n"
+      "  read:\n"
+      "    proportion_pct: 90\n"
+      "    distribution:\n"
+      "      type: zipfian\n"
+      "      theta: 0.75\n"
+      "  insert:\n"
+      "    proportion_pct: 10\n"
+      "    distribution:\n"
+      "      type: hotspot\n"
+      "      hot_proportion_pct: 90\n"
+      "      range_min: 100\n"
+      "      range_max: 100000000\n"
+      "      hot_range_min: 100\n"
+      "      hot_range_max: 5000000\n";
+
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+
+  ycsbr::Session<NoOpInterface> session(1);
+  ycsbr::RunOptions options;
+  options.latency_sample_period = 1000;
+  session.Initialize();
+  for (auto _ : state) {
+    auto result = session.RunWorkload(*workload, options);
+    state.SetIterationTime(
+        result.RunTime<std::chrono::duration<double>>().count());
+  }
+  session.Terminate();
+  const size_t num_requests_executed = num_requests * state.iterations();
+  state.SetItemsProcessed(num_requests_executed);
+  state.counters["PerRequestLatency"] = benchmark::Counter(
+      num_requests_executed,
+      benchmark::Counter::kIsRate | benchmark::Counter::kInvert);
+}
+
 BENCHMARK(BM_FNVHash64)->Arg(10000);
 BENCHMARK(BM_MersenneTwister)->Arg(10000);
 BENCHMARK(BM_UniformDist)->Arg(10000);
 BENCHMARK(BM_MathPow)->Arg(10000);
 BENCHMARK(BM_ZipfianGen)->Arg(10000000);
 BENCHMARK(BM_PhasedWorkloadOverheadUniform)->UseManualTime();
+BENCHMARK(BM_MultiphaseWorkloadOverhead)->UseManualTime();
 
 // Generally, Floyd sampling is faster than Fisher-Yates based sampling. These
 // sampling techniques outperform selection sampling when the sample size is
