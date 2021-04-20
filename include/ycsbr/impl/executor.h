@@ -27,8 +27,8 @@ class Executor {
   // Runs the workload produced by the producer.
   void operator()();
 
-  bool IsReady() const;
-  void Wait();
+  void WaitForReady() const;
+  void WaitForCompletion() const;
   MetricsTracker&& GetResults() &&;
 
   // Meant for use by YCSBR's internal microbenchmarks.
@@ -37,7 +37,7 @@ class Executor {
  private:
   void WorkloadLoop();
 
-  std::atomic<bool> ready_;
+  Flag ready_;
   const Flag* can_start_;
   Flag done_;
 
@@ -55,7 +55,7 @@ template <class DatabaseInterface, typename WorkloadProducer>
 inline Executor<DatabaseInterface, WorkloadProducer>::Executor(
     DatabaseInterface* db, WorkloadProducer producer, const Flag* can_start,
     const RunOptions& options)
-    : ready_(false),
+    : ready_(),
       can_start_(can_start),
       done_(),
       db_(db),
@@ -65,24 +65,26 @@ inline Executor<DatabaseInterface, WorkloadProducer>::Executor(
       sampling_counter_(0) {}
 
 template <class DatabaseInterface, typename WorkloadProducer>
-inline bool Executor<DatabaseInterface, WorkloadProducer>::IsReady() const {
-  return ready_.load(std::memory_order_acquire);
+inline void Executor<DatabaseInterface, WorkloadProducer>::WaitForReady()
+    const {
+  return ready_.Wait();
 }
 
 template <class DatabaseInterface, typename WorkloadProducer>
-inline void Executor<DatabaseInterface, WorkloadProducer>::Wait() {
+inline void Executor<DatabaseInterface, WorkloadProducer>::WaitForCompletion()
+    const {
   done_.Wait();
 }
 
 template <class DatabaseInterface, typename WorkloadProducer>
 inline MetricsTracker&&
 Executor<DatabaseInterface, WorkloadProducer>::GetResults() && {
-  Wait();
+  WaitForCompletion();
   return std::move(tracker_);
 }
 
 template <typename Callable>
-inline std::optional<std::chrono::nanoseconds> MeasurementHelper2(
+inline std::optional<std::chrono::nanoseconds> MeasurementHelper(
     Callable&& callable, bool measure_latency) {
   if (!measure_latency) {
     callable();
@@ -101,7 +103,7 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::operator()() {
   producer_.Prepare();
 
   // Now ready to proceed; wait until we're told to start.
-  ready_.store(true, std::memory_order_release);
+  ready_.Raise();
   can_start_->Wait();
 
   // Run the job.
@@ -132,7 +134,7 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
       case Request::Operation::kRead: {
         bool succeeded = false;
         value_out.clear();
-        const auto run_time = MeasurementHelper2(
+        const auto run_time = MeasurementHelper(
             [this, &req, &value_out, &read_xor, &succeeded]() {
               succeeded = db_->Read(req.key, &value_out);
               if (succeeded) {
@@ -156,7 +158,7 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
         // Inserts count the whole record size, since this should be the first
         // time the entire record is written to the DB.
         bool succeeded = false;
-        const auto run_time = MeasurementHelper2(
+        const auto run_time = MeasurementHelper(
             [this, &req, &succeeded]() {
               succeeded = db_->Insert(req.key, req.value, req.value_size);
             },
@@ -174,7 +176,7 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
         // Updates only record the value size, since the key should already
         // exist in the DB.
         bool succeeded = false;
-        const auto run_time = MeasurementHelper2(
+        const auto run_time = MeasurementHelper(
             [this, &req, &succeeded]() {
               succeeded = db_->Update(req.key, req.value, req.value_size);
             },
@@ -191,7 +193,7 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
         bool succeeded = false;
         scan_out.clear();
         scan_out.reserve(req.scan_amount);
-        const auto run_time = MeasurementHelper2(
+        const auto run_time = MeasurementHelper(
             [this, &req, &scan_out, &read_xor, &succeeded]() {
               succeeded = db_->Scan(req.key, req.scan_amount, &scan_out);
               if (succeeded && scan_out.size() > 0) {

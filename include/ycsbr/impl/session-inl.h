@@ -114,17 +114,16 @@ inline BenchmarkResult Session<DatabaseInterface>::RunWorkload(
     threads_->SubmitNoWait([exec = executors.back().get()]() { (*exec)(); });
   }
 
-  // Busy wait for the executors to start up.
+  // Wait for the executors to finish performing their startup work.
   for (const auto& executor : executors) {
-    while (!executor->IsReady()) {
-    }
+    executor->WaitForReady();
   }
 
   // Start the workload and the timer.
   const auto start = std::chrono::steady_clock::now();
   can_start.Raise();
   for (auto& executor : executors) {
-    executor->Wait();
+    executor->WaitForCompletion();
   }
   const auto end = std::chrono::steady_clock::now();
 
