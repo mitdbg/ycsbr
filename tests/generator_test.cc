@@ -6,6 +6,7 @@
 #include "../generator/sampling.h"
 #include "../generator/uniform_keygen.h"
 #include "gtest/gtest.h"
+#include "ycsbr/gen/keyrange.h"
 
 namespace {
 
@@ -20,8 +21,8 @@ TEST(GeneratorTest, FloydSample) {
   std::mt19937 prng(42);
   std::vector<uint64_t> samples(num_samples + 20, 0);
 
-  FloydSample<uint64_t, std::mt19937>(num_samples, min, max, &samples,
-                                      start_index, prng);
+  FloydSample<uint64_t, std::mt19937>(num_samples, Range<uint64_t>(min, max),
+                                      &samples, start_index, prng);
   ASSERT_EQ(samples.size(), num_samples + 20);
 
   std::unordered_set<uint64_t> seen;
@@ -49,8 +50,8 @@ TEST(GeneratorTest, FisherYates) {
   std::mt19937 prng(42);
   std::vector<uint64_t> samples(num_samples + 20, 0);
 
-  FisherYatesSample<uint64_t, std::mt19937>(num_samples, min, max, &samples,
-                                            start_index, prng);
+  FisherYatesSample<uint64_t, std::mt19937>(
+      num_samples, Range<uint64_t>(min, max), &samples, start_index, prng);
   ASSERT_EQ(samples.size(), num_samples + 20);
 
   std::unordered_set<uint64_t> seen;
@@ -77,8 +78,8 @@ TEST(GeneratorTest, SelectionSample) {
   std::mt19937 prng(42);
   std::vector<uint64_t> samples(num_samples + 20, 0);
 
-  SelectionSample<uint64_t, std::mt19937>(num_samples, min, max, &samples,
-                                          start_index, prng);
+  SelectionSample<uint64_t, std::mt19937>(
+      num_samples, Range<uint64_t>(min, max), &samples, start_index, prng);
   ASSERT_EQ(samples.size(), num_samples + 20);
 
   std::unordered_set<uint64_t> seen;
@@ -103,7 +104,7 @@ TEST(GeneratorTest, UniformGenerator) {
   constexpr Request::Key max = 10000;
 
   std::mt19937 prng(42);
-  UniformGenerator generator(num_samples, min, max);
+  UniformGenerator generator(num_samples, KeyRange(min, max));
   std::vector<Request::Key> dest(num_samples + 10, 0);
   generator.Generate(prng, &dest, 10);
 

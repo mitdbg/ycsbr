@@ -82,21 +82,19 @@ void HotspotGenerator::Generate(std::mt19937& prng,
   // Before.
   if (num_cold_before_keys_ > 0) {
     SelectionSample<Request::Key, std::mt19937>(
-        num_cold_before_keys_, cold_before_->min(), cold_before_->max(), dest,
-        curr_index, prng);
+        num_cold_before_keys_, *cold_before_, dest, curr_index, prng);
     curr_index += num_cold_before_keys_;
   }
 
   // Hot.
-  SelectionSample<Request::Key, std::mt19937>(
-      num_hot_keys_, hot_.min(), hot_.max(), dest, curr_index, prng);
+  SelectionSample<Request::Key, std::mt19937>(num_hot_keys_, hot_, dest,
+                                              curr_index, prng);
   curr_index += num_hot_keys_;
 
   // After.
   if (num_cold_after_keys_ > 0) {
     SelectionSample<Request::Key, std::mt19937>(
-        num_cold_after_keys_, cold_after_->min(), cold_after_->max(), dest,
-        curr_index, prng);
+        num_cold_after_keys_, *cold_after_, dest, curr_index, prng);
     curr_index += num_cold_after_keys_;
   }
 

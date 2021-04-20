@@ -131,15 +131,14 @@ std::unique_ptr<gen::Generator> CreateGenerator(
   const std::string dist_type =
       distribution_config[kDistributionTypeKey].as<std::string>();
   if (dist_type == kUniformDist) {
-    const gen::KeyRange range =
+    gen::KeyRange range =
         ParseKeyRange(distribution_config, kRangeMinKey, kRangeMaxKey);
-    return std::make_unique<gen::UniformGenerator>(num_keys, range.min(),
-                                                   range.max());
+    return std::make_unique<gen::UniformGenerator>(num_keys, std::move(range));
 
   } else if (dist_type == kHotspotDist) {
-    const gen::KeyRange overall =
+    gen::KeyRange overall =
         ParseKeyRange(distribution_config, kRangeMinKey, kRangeMaxKey);
-    const gen::KeyRange hot =
+    gen::KeyRange hot =
         ParseKeyRange(distribution_config, kHotRangeMinKey, kHotRangeMaxKey);
     const uint32_t hot_proportion_pct =
         distribution_config[kHotspotProportionKey].as<uint32_t>();

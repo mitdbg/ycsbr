@@ -9,6 +9,7 @@
 #include "../generator/zipfian_chooser.h"
 #include "benchmark/benchmark.h"
 #include "db_interface.h"
+#include "ycsbr/gen/keyrange.h"
 #include "ycsbr/gen/workload.h"
 #include "ycsbr/session.h"
 
@@ -109,8 +110,8 @@ void BM_FloydSample(benchmark::State& state) {
   std::mt19937 rng(42);
   std::vector<uint64_t> samples(sample_size, 0);
   for (auto _ : state) {
-    FloydSample<uint64_t, std::mt19937>(sample_size, 0, range_size - 1,
-                                        &samples, 0, rng);
+    FloydSample<uint64_t, std::mt19937>(
+        sample_size, Range<uint64_t>(0, range_size - 1), &samples, 0, rng);
   }
   const size_t num_samples_taken = state.range(0) * state.iterations();
   state.SetItemsProcessed(num_samples_taken);
@@ -125,8 +126,8 @@ void BM_FisherYatesSample(benchmark::State& state) {
   std::mt19937 rng(42);
   std::vector<uint64_t> samples(sample_size, 0);
   for (auto _ : state) {
-    FisherYatesSample<uint64_t, std::mt19937>(sample_size, 0, range_size - 1,
-                                              &samples, 0, rng);
+    FisherYatesSample<uint64_t, std::mt19937>(
+        sample_size, Range<uint64_t>(0, range_size - 1), &samples, 0, rng);
   }
   const size_t num_samples_taken = state.range(0) * state.iterations();
   state.SetItemsProcessed(num_samples_taken);
@@ -141,8 +142,8 @@ void BM_SelectionSample(benchmark::State& state) {
   std::mt19937 rng(42);
   std::vector<uint64_t> samples(sample_size, 0);
   for (auto _ : state) {
-    SelectionSample<uint64_t, std::mt19937>(sample_size, 0, range_size - 1,
-                                            &samples, 0, rng);
+    SelectionSample<uint64_t, std::mt19937>(
+        sample_size, Range<uint64_t>(0, range_size - 1), &samples, 0, rng);
   }
   const size_t num_samples_taken = state.range(0) * state.iterations();
   state.SetItemsProcessed(num_samples_taken);
@@ -158,7 +159,7 @@ void BM_AutoSample(benchmark::State& state) {
   std::vector<uint64_t> samples(sample_size, 0);
   for (auto _ : state) {
     SampleWithoutReplacement<uint64_t, std::mt19937>(
-        sample_size, 0, range_size - 1, &samples, 0, rng);
+        sample_size, Range<uint64_t>(0, range_size - 1), &samples, 0, rng);
   }
   const size_t num_samples_taken = state.range(0) * state.iterations();
   state.SetItemsProcessed(num_samples_taken);
