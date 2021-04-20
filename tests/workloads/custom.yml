@@ -1,5 +1,18 @@
+# This file is an example YCSBR workload configuration file. You can create a
+# workload from this configuration using
+# `ycsbr::gen::PhasedWorkload::LoadFrom()`.
+
+# Set the size of the records that will be used in the workload. All records
+# will have an 8 byte key (64-bit unsigned integer), so this size must be at
+# least 9.
 record_size_bytes: 16
 
+# Configures the records that should be loaded before the workload runs. The
+# supported distributions are (i) uniform, and (ii) hotspot. For both uniform
+# and hotspot, you must specify a range (inclusive) for the keys. For hotspot
+# distributions, you must also specify an inclusive hot range that must lie
+# inside the overall range. You also need to specify a hot proportion
+# percentage (how many of the inserts should appear inside the hot range).
 load:
   num_records: 10
   distribution:
@@ -7,28 +20,43 @@ load:
     range_min: 100
     range_max: 1000000
 
+# Configures the workload phases. There can be at most 255 phases. When running
+# with more than one thread, the number of requests will be divided equally
+# among all the threads.
+#
+# If any operation type is not specified in a phase, its proportion percentage
+# is assumed to be 0%.
 run:
-- num_requests: 10000
+- num_requests: 20
+  # For read, update, and scan operations, the allowed distributions are (i)
+  # uniform, and (ii) zipfian. For zipfian, you must choose a theta, which
+  # represents the skew. We only support values of theta in the exclusive range
+  # (0, 1). A larger value of theta means there is more skew.
   read:
     proportion_pct: 50
     distribution:
       type: zipfian
       theta: 0.99
-  insert:
-    proportion_pct: 10
-    distribution:
-      type: hotspot
-      range_min: 1000
-      range_max: 2000
-      hot_proportion_pct: 10
-      hot_range_min: 10
-      hot_range_max: 20
   update:
     proportion_pct: 30
     distribution:
       type: uniform
   scan:
     proportion_pct: 10
+    # For scans, you need to specify the maximum scan length. The scan length
+    # will be selected uniformly from the range [1, max_length].
     max_length: 1000
     distribution:
       type: uniform
+
+  # For inserts, the supported distributions are the same as for the "load"
+  # configuration above.
+  insert:
+    proportion_pct: 10
+    distribution:
+      type: hotspot
+      range_min: 1000
+      range_max: 2000
+      hot_proportion_pct: 90
+      hot_range_min: 1100
+      hot_range_max: 1200
