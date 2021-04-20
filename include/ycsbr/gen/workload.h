@@ -32,7 +32,7 @@ class PhasedWorkload {
   PhasedWorkload(std::shared_ptr<WorkloadConfig> config, uint32_t prng_seed);
 
  private:
-  std::mt19937 prng_;
+  PRNG prng_;
   uint32_t prng_seed_;
   std::shared_ptr<WorkloadConfig> config_;
   std::shared_ptr<std::vector<Request::Key>> load_keys_;
@@ -58,7 +58,7 @@ class PhasedWorkload::Producer {
   ProducerID id_;
   size_t num_producers_;
   std::shared_ptr<const WorkloadConfig> config_;
-  std::mt19937 prng_;
+  PRNG prng_;
 
   std::vector<Phase> phases_;
   PhaseID current_phase_;

@@ -1,10 +1,10 @@
 #pragma once
 
-#include <random>
 #include <vector>
 
 #include "ycsbr/gen/keygen.h"
 #include "ycsbr/gen/keyrange.h"
+#include "ycsbr/gen/types.h"
 #include "ycsbr/request.h"
 
 namespace ycsbr {
@@ -15,7 +15,7 @@ class UniformGenerator : public Generator {
   // Uniformly select `num_keys` from [range.min(), range.max()].
   UniformGenerator(size_t num_keys, KeyRange range);
 
-  void Generate(std::mt19937& prng, std::vector<Request::Key>* dest,
+  void Generate(PRNG& prng, std::vector<Request::Key>* dest,
                 size_t start_index) const override;
 
  private:

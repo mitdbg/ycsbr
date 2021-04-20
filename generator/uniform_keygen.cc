@@ -17,11 +17,10 @@ UniformGenerator::UniformGenerator(const size_t num_keys, KeyRange range)
   }
 }
 
-void UniformGenerator::Generate(std::mt19937& prng,
-                                std::vector<Request::Key>* dest,
+void UniformGenerator::Generate(PRNG& prng, std::vector<Request::Key>* dest,
                                 const size_t start_index) const {
-  SampleWithoutReplacement<Request::Key, std::mt19937>(num_keys_, range_, dest,
-                                                       start_index, prng);
+  SampleWithoutReplacement<Request::Key, PRNG>(num_keys_, range_, dest,
+                                               start_index, prng);
   // Shuffle the samples to be sure the order is not biased.
   std::shuffle(dest->begin() + start_index,
                dest->begin() + start_index + num_keys_, prng);

@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <random>
 #include <unordered_set>
 
 #include "../generator/hotspot_keygen.h"
@@ -7,6 +6,7 @@
 #include "../generator/uniform_keygen.h"
 #include "gtest/gtest.h"
 #include "ycsbr/gen/keyrange.h"
+#include "ycsbr/gen/types.h"
 
 namespace {
 
@@ -18,11 +18,11 @@ TEST(GeneratorTest, FloydSample) {
   constexpr size_t start_index = 10;
   constexpr uint64_t min = 1;
   constexpr uint64_t max = 500000000;
-  std::mt19937 prng(42);
+  PRNG prng(42);
   std::vector<uint64_t> samples(num_samples + 20, 0);
 
-  FloydSample<uint64_t, std::mt19937>(num_samples, Range<uint64_t>(min, max),
-                                      &samples, start_index, prng);
+  FloydSample<uint64_t, PRNG>(num_samples, Range<uint64_t>(min, max), &samples,
+                              start_index, prng);
   ASSERT_EQ(samples.size(), num_samples + 20);
 
   std::unordered_set<uint64_t> seen;
@@ -47,11 +47,11 @@ TEST(GeneratorTest, FisherYates) {
   constexpr size_t start_index = 10;
   constexpr uint64_t min = 1;
   constexpr uint64_t max = 500000000;
-  std::mt19937 prng(42);
+  PRNG prng(42);
   std::vector<uint64_t> samples(num_samples + 20, 0);
 
-  FisherYatesSample<uint64_t, std::mt19937>(
-      num_samples, Range<uint64_t>(min, max), &samples, start_index, prng);
+  FisherYatesSample<uint64_t, PRNG>(num_samples, Range<uint64_t>(min, max),
+                                    &samples, start_index, prng);
   ASSERT_EQ(samples.size(), num_samples + 20);
 
   std::unordered_set<uint64_t> seen;
@@ -75,11 +75,11 @@ TEST(GeneratorTest, SelectionSample) {
   constexpr size_t start_index = 10;
   constexpr uint64_t min = 1;
   constexpr uint64_t max = 100000;
-  std::mt19937 prng(42);
+  PRNG prng(42);
   std::vector<uint64_t> samples(num_samples + 20, 0);
 
-  SelectionSample<uint64_t, std::mt19937>(
-      num_samples, Range<uint64_t>(min, max), &samples, start_index, prng);
+  SelectionSample<uint64_t, PRNG>(num_samples, Range<uint64_t>(min, max),
+                                  &samples, start_index, prng);
   ASSERT_EQ(samples.size(), num_samples + 20);
 
   std::unordered_set<uint64_t> seen;
@@ -103,7 +103,7 @@ TEST(GeneratorTest, UniformGenerator) {
   constexpr Request::Key min = 10;
   constexpr Request::Key max = 10000;
 
-  std::mt19937 prng(42);
+  PRNG prng(42);
   UniformGenerator generator(num_samples, KeyRange(min, max));
   std::vector<Request::Key> dest(num_samples + 10, 0);
   generator.Generate(prng, &dest, 10);
@@ -127,7 +127,7 @@ TEST(GeneratorTest, HotspotGenerator) {
   constexpr size_t offset = 5;
   constexpr size_t repetitions = 3;
 
-  std::mt19937 prng(42);
+  PRNG prng(42);
   HotspotGenerator generator(num_samples, hot_pct, overall, hot);
 
   for (size_t rep = 0; rep < repetitions; ++rep) {

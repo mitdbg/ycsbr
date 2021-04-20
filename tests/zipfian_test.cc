@@ -1,8 +1,7 @@
 #include "../generator/zipfian_chooser.h"
 
-#include <random>
-
 #include "gtest/gtest.h"
+#include "ycsbr/gen/types.h"
 
 namespace {
 
@@ -13,7 +12,7 @@ TEST(ZipfianTest, Simple) {
   constexpr size_t repetitions = 100000;
   constexpr size_t epsilon = 100;
 
-  std::mt19937 prng(42);
+  PRNG prng(42);
   ZipfianChooser zipf(item_count, 0.99);
   std::vector<size_t> freq(item_count, 0);
   for (size_t i = 0; i < repetitions; ++i) {
@@ -29,7 +28,7 @@ TEST(ZipfianTest, CheckCaching) {
   constexpr size_t repetitions = 100000;
   constexpr size_t epsilon = 100;
 
-  std::mt19937 prng(42);
+  PRNG prng(42);
   ZipfianChooser zipf(item_count, 0.99);
   std::vector<size_t> freq(item_count, 0);
   for (size_t i = 0; i < repetitions; ++i) {
@@ -45,7 +44,7 @@ TEST(ZipfianTest, DifferentTheta) {
   constexpr size_t repetitions = 100000;
   constexpr size_t epsilon = 100;
 
-  std::mt19937 prng(42);
+  PRNG prng(42);
   ZipfianChooser zipf(item_count, 0.5);
   std::vector<size_t> freq(item_count, 0);
   for (size_t i = 0; i < repetitions; ++i) {

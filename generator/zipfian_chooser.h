@@ -24,7 +24,7 @@ class ZipfianChooser : public Chooser {
   // Get a sample from the distribution. The returned value will be in the range
   // [0, item_count). Note that index 0 will be the most popular, followed by
   // index 1, and so on.
-  size_t Next(std::mt19937& prng) override;
+  size_t Next(PRNG& prng) override;
 
   // This requires some computation and can be slow if `delta` is large.
   void IncreaseItemCountBy(size_t delta) override;
@@ -59,7 +59,7 @@ class ZipfianChooser : public Chooser {
 class ScatteredZipfianChooser : public ZipfianChooser {
  public:
   ScatteredZipfianChooser(size_t item_count, double theta);
-  size_t Next(std::mt19937& prng) override;
+  size_t Next(PRNG& prng) override;
 };
 
 // Implementation details follow.
@@ -82,7 +82,7 @@ inline ScatteredZipfianChooser::ScatteredZipfianChooser(const size_t item_count,
                                                         const double theta)
     : ZipfianChooser(item_count, theta) {}
 
-inline size_t ZipfianChooser::Next(std::mt19937& prng) {
+inline size_t ZipfianChooser::Next(PRNG& prng) {
   const double u = dist_(prng);
   const double uz = u * zeta_n_;
   if (uz < 1.0) return 0;
@@ -91,7 +91,7 @@ inline size_t ZipfianChooser::Next(std::mt19937& prng) {
                              std::pow(eta_ * u - eta_ + 1, alpha_));
 }
 
-inline size_t ScatteredZipfianChooser::Next(std::mt19937& prng) {
+inline size_t ScatteredZipfianChooser::Next(PRNG& prng) {
   // Most of the generator code assumes that we're running on a 64-bit system.
   static_assert(sizeof(uint64_t) == sizeof(size_t));
   const uint64_t hashed_choice = FNVHash64(ZipfianChooser::Next(prng));

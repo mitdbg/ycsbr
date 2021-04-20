@@ -1,18 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <random>
 
 namespace ycsbr {
 namespace gen {
 
-enum class Distribution : uint8_t {
-  kUniform = 0,
-  kZipfian = 1,
-  kHotspot = 2
-};
-
 using PhaseID = uint64_t;
 using ProducerID = uint64_t;
+using PRNG = std::mt19937;
 
 }  // namespace gen
 }  // namespace ycsbr

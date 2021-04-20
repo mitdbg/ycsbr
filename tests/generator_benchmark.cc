@@ -10,6 +10,7 @@
 #include "benchmark/benchmark.h"
 #include "db_interface.h"
 #include "ycsbr/gen/keyrange.h"
+#include "ycsbr/gen/types.h"
 #include "ycsbr/gen/workload.h"
 #include "ycsbr/session.h"
 
@@ -97,7 +98,7 @@ void BM_MathPow(benchmark::State& state) {
 
 void BM_ZipfianGen(benchmark::State& state) {
   const size_t item_count = state.range(0);
-  std::mt19937 prng(42);
+  PRNG prng(42);
   ZipfianChooser zipf(item_count, 0.99);
   for (auto _ : state) {
     benchmark::DoNotOptimize(zipf.Next(prng));
@@ -107,11 +108,11 @@ void BM_ZipfianGen(benchmark::State& state) {
 void BM_FloydSample(benchmark::State& state) {
   const size_t sample_size = state.range(0);
   const size_t range_size = state.range(1);
-  std::mt19937 rng(42);
+  PRNG rng(42);
   std::vector<uint64_t> samples(sample_size, 0);
   for (auto _ : state) {
-    FloydSample<uint64_t, std::mt19937>(
-        sample_size, Range<uint64_t>(0, range_size - 1), &samples, 0, rng);
+    FloydSample<uint64_t, PRNG>(sample_size, Range<uint64_t>(0, range_size - 1),
+                                &samples, 0, rng);
   }
   const size_t num_samples_taken = state.range(0) * state.iterations();
   state.SetItemsProcessed(num_samples_taken);
@@ -123,10 +124,10 @@ void BM_FloydSample(benchmark::State& state) {
 void BM_FisherYatesSample(benchmark::State& state) {
   const size_t sample_size = state.range(0);
   const size_t range_size = state.range(1);
-  std::mt19937 rng(42);
+  PRNG rng(42);
   std::vector<uint64_t> samples(sample_size, 0);
   for (auto _ : state) {
-    FisherYatesSample<uint64_t, std::mt19937>(
+    FisherYatesSample<uint64_t, PRNG>(
         sample_size, Range<uint64_t>(0, range_size - 1), &samples, 0, rng);
   }
   const size_t num_samples_taken = state.range(0) * state.iterations();
@@ -139,10 +140,10 @@ void BM_FisherYatesSample(benchmark::State& state) {
 void BM_SelectionSample(benchmark::State& state) {
   const size_t sample_size = state.range(0);
   const size_t range_size = state.range(1);
-  std::mt19937 rng(42);
+  PRNG rng(42);
   std::vector<uint64_t> samples(sample_size, 0);
   for (auto _ : state) {
-    SelectionSample<uint64_t, std::mt19937>(
+    SelectionSample<uint64_t, PRNG>(
         sample_size, Range<uint64_t>(0, range_size - 1), &samples, 0, rng);
   }
   const size_t num_samples_taken = state.range(0) * state.iterations();
@@ -155,10 +156,10 @@ void BM_SelectionSample(benchmark::State& state) {
 void BM_AutoSample(benchmark::State& state) {
   const size_t sample_size = state.range(0);
   const size_t range_size = state.range(1);
-  std::mt19937 rng(42);
+  PRNG rng(42);
   std::vector<uint64_t> samples(sample_size, 0);
   for (auto _ : state) {
-    SampleWithoutReplacement<uint64_t, std::mt19937>(
+    SampleWithoutReplacement<uint64_t, PRNG>(
         sample_size, Range<uint64_t>(0, range_size - 1), &samples, 0, rng);
   }
   const size_t num_samples_taken = state.range(0) * state.iterations();

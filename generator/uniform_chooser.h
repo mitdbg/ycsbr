@@ -6,6 +6,7 @@
 #include <random>
 
 #include "ycsbr/gen/chooser.h"
+#include "ycsbr/gen/types.h"
 #include "ycsbr/request.h"
 
 namespace ycsbr {
@@ -20,7 +21,7 @@ class UniformChooser : public Chooser {
     assert(item_count > 0);
   }
 
-  size_t Next(std::mt19937& prng) override { return dist_(prng); }
+  size_t Next(PRNG& prng) override { return dist_(prng); }
 
   void SetItemCount(const size_t item_count) override {
     item_count_ = item_count;

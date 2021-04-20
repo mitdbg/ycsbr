@@ -2,8 +2,8 @@
 
 #include <cstdint>
 #include <cstring>
-#include <random>
 
+#include "ycsbr/gen/types.h"
 #include "ycsbr/request.h"
 
 namespace ycsbr {
@@ -14,7 +14,7 @@ namespace gen {
 class Chooser {
  public:
   virtual ~Chooser() = default;
-  virtual size_t Next(std::mt19937& prng) = 0;
+  virtual size_t Next(PRNG& prng) = 0;
   virtual void SetItemCount(size_t item_count) = 0;
   virtual void IncreaseItemCountBy(size_t delta) = 0;
 };

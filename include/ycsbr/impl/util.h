@@ -3,13 +3,13 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
-#include <random>
 
 namespace ycsbr {
 namespace impl {
 
+template <class RNG>
 inline std::unique_ptr<char[]> GetRandomBytes(const size_t size,
-                                              std::mt19937& prng) {
+                                              RNG& prng) {
   assert(size >= sizeof(uint32_t));
   std::unique_ptr<char[]> values = std::make_unique<char[]>(size);
   const size_t num_u32 = size / sizeof(uint32_t);

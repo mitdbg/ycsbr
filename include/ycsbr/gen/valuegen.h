@@ -3,8 +3,8 @@
 #include <cassert>
 #include <cstring>
 #include <memory>
-#include <random>
 
+#include "ycsbr/gen/types.h"
 #include "ycsbr/impl/util.h"
 
 namespace ycsbr {
@@ -12,8 +12,7 @@ namespace gen {
 
 class ValueGenerator {
  public:
-  ValueGenerator(const size_t value_size, const size_t num_values,
-                 std::mt19937& prng)
+  ValueGenerator(const size_t value_size, const size_t num_values, PRNG& prng)
       : raw_values_(nullptr),
         value_size_(value_size),
         total_size_(value_size * num_values),
