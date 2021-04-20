@@ -4,9 +4,9 @@
 #include "../generator/hotspot_keygen.h"
 #include "../generator/sampling.h"
 #include "../generator/uniform_keygen.h"
+#include "db_interface.h"
 #include "gtest/gtest.h"
-#include "ycsbr/gen/keyrange.h"
-#include "ycsbr/gen/types.h"
+#include "ycsbr/gen.h"
 
 namespace {
 
@@ -151,6 +151,65 @@ TEST(GeneratorTest, HotspotGenerator) {
     const size_t expected_hot_keys = num_samples * (hot_pct / 100.0);
     ASSERT_EQ(hot_count, expected_hot_keys);
   }
+}
+
+TEST(GeneratorTest, RequestProportions) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  num_records: 1000\n"
+      "  distribution:\n"
+      "    type: uniform\n"
+      "    range_min: 100\n"
+      "    range_max: 100000000\n"
+      "run:\n"
+      "- num_requests: 100\n"
+      "  read:\n"
+      "    proportion_pct: 25\n"
+      "    distribution:\n"
+      "      type: uniform\n"
+      "  update:\n"
+      "    proportion_pct: 25\n"
+      "    distribution:\n"
+      "      type: zipfian\n"
+      "      theta: 0.90\n"
+      "  scan:\n"
+      "    max_length: 100\n"
+      "    proportion_pct: 25\n"
+      "    distribution:\n"
+      "      type: uniform\n"
+      "  insert:\n"
+      "    proportion_pct: 25\n"
+      "    distribution:\n"
+      "      type: hotspot\n"
+      "      range_min: 10\n"
+      "      range_max: 2000000\n"
+      "      hot_proportion_pct: 90\n"
+      "      hot_range_min: 10\n"
+      "      hot_range_max: 500000\n";
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+  Session<TestDatabaseInterface> session(1);
+  session.Initialize();
+  session.ReplayBulkLoadTrace(workload->GetLoadTrace());
+  session.RunWorkload(*workload);
+  session.Terminate();
+
+  ASSERT_EQ(session.db().initialize_worker_calls, 1);
+  ASSERT_EQ(session.db().shutdown_worker_calls, 1);
+  ASSERT_EQ(session.db().initialize_calls, 1);
+  ASSERT_EQ(session.db().shutdown_calls, 1);
+  ASSERT_EQ(session.db().bulk_load_calls, 1);
+  ASSERT_EQ(session.db().insert_calls, 25);
+
+  // Overall there should be 100 requests. They should be evenly split among the
+  // three request types (i.e., 25 each). However, since which request to
+  // perform is selected using a PRNG, we can't assert that they will each be
+  // exactly 25. Instead, we just check that the request counts sum to 75.
+  const size_t num_other_requests = session.db().read_calls +
+                                    session.db().update_calls +
+                                    session.db().scan_calls;
+  ASSERT_EQ(num_other_requests, 75);
 }
 
 }  // namespace

@@ -5,7 +5,7 @@
 #include <thread>
 
 #include "../meter.h"
-#include "../workload/trace.h"
+#include "../trace_workload.h"
 #include "executor.h"
 
 namespace ycsbr {

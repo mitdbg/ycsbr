@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "../request.h"
+#include "ycsbr/request.h"
 
 namespace ycsbr {
 

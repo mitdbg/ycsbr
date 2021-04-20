@@ -12,7 +12,7 @@
 #include "ycsbr/run_options.h"
 #include "ycsbr/session.h"
 #include "ycsbr/trace.h"
-#include "ycsbr/workload/trace.h"
+#include "ycsbr/trace_workload.h"
 
 namespace {
 

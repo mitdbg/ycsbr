@@ -11,7 +11,7 @@
 #include "ycsbr/gen/types.h"
 #include "ycsbr/gen/valuegen.h"
 #include "ycsbr/request.h"
-#include "ycsbr/workload/trace.h"
+#include "ycsbr/trace_workload.h"
 
 namespace ycsbr {
 namespace gen {

@@ -3,8 +3,8 @@
 #include <memory>
 #include <vector>
 
-#include "../request.h"
-#include "../trace.h"
+#include "ycsbr/request.h"
+#include "ycsbr/trace.h"
 
 namespace ycsbr {
 
