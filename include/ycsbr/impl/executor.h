@@ -143,7 +143,6 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
                 read_xor ^=
                     *reinterpret_cast<const uint32_t*>(value_out.c_str());
               }
-              return succeeded;
             },
             measure_latency);
         tracker_.RecordRead(run_time, value_out.size(), succeeded);
