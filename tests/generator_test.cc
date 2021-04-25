@@ -2,6 +2,7 @@
 #include <unordered_set>
 
 #include "../generator/hotspot_keygen.h"
+#include "../generator/linspace_keygen.h"
 #include "../generator/sampling.h"
 #include "../generator/uniform_keygen.h"
 #include "db_interface.h"
@@ -210,6 +211,34 @@ TEST(GeneratorTest, RequestProportions) {
                                     session.db().update_calls +
                                     session.db().scan_calls;
   ASSERT_EQ(num_other_requests, 75);
+}
+
+TEST(GeneratorTest, Linspace) {
+  std::mt19937 prng(42);
+  std::vector<Request::Key> dest(100, 0);
+
+  // Simple case: generate dense keys from 0 to 9 inclusive.
+  gen::LinspaceGenerator gen1(/*num_keys=*/10, /*start_key=*/0, /*step_size=*/1);
+  gen1.Generate(prng, &dest, 0);
+  std::sort(dest.begin(), dest.begin() + 10);
+  for (size_t i = 0; i < dest.size(); ++i) {
+    if (i < 10) {
+      ASSERT_EQ(dest[i], i);
+    } else {
+      ASSERT_EQ(dest[i], 0);
+    }
+  }
+
+  // Larger key list - ensure all diffs are the same.
+  gen::LinspaceGenerator gen2(/*num_keys=*/100, /*start_key=*/100, /*step_size=*/123);
+  gen2.Generate(prng, &dest, 0);
+  std::sort(dest.begin(), dest.end());
+  ASSERT_EQ(dest[0], 100);
+  for (size_t i = 1; i < dest.size(); ++i) {
+    const int diff = static_cast<int>(dest[i]) - static_cast<int>(dest[i - 1]);
+    ASSERT_EQ(diff, 123);
+    ASSERT_GE(dest[i], 100);
+  }
 }
 
 }  // namespace

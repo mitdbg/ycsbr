@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "hotspot_keygen.h"
+#include "linspace_keygen.h"
 #include "uniform_chooser.h"
 #include "uniform_keygen.h"
 #include "yaml-cpp/yaml.h"
@@ -38,6 +39,7 @@ const std::string kScanMaxLengthKey = "max_length";
 const std::string kUniformDist = "uniform";
 const std::string kZipfianDist = "zipfian";
 const std::string kHotspotDist = "hotspot";
+const std::string kLinspaceDist = "linspace";
 
 const std::string kRangeMinKey = "range_min";
 const std::string kRangeMaxKey = "range_max";
@@ -45,6 +47,8 @@ const std::string kZipfianThetaKey = "theta";
 const std::string kHotspotProportionKey = "hot_proportion_pct";
 const std::string kHotRangeMinKey = "hot_" + kRangeMinKey;
 const std::string kHotRangeMaxKey = "hot_" + kRangeMaxKey;
+const std::string kLinspaceStartKey = "start_key";
+const std::string kLinspaceStepSize = "step_size";
 
 // We reserve 16 bits for tracking the phase IDs and producer IDs.
 const Request::Key kMaxKey = (1ULL << 48) - 1;
@@ -144,6 +148,14 @@ std::unique_ptr<gen::Generator> CreateGenerator(
         distribution_config[kHotspotProportionKey].as<uint32_t>();
     return std::make_unique<gen::HotspotGenerator>(
         num_keys, hot_proportion_pct, std::move(overall), std::move(hot));
+
+  } else if (dist_type == kLinspaceDist) {
+    const Request::Key start_key =
+        distribution_config[kLinspaceStartKey].as<Request::Key>();
+    const Request::Key step_size =
+        distribution_config[kLinspaceStepSize].as<Request::Key>();
+    return std::make_unique<gen::LinspaceGenerator>(num_keys, start_key,
+                                                    step_size);
 
   } else {
     throw std::invalid_argument("Unsupported load/insert distribution: " +
