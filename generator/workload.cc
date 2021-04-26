@@ -55,6 +55,10 @@ PhasedWorkload::PhasedWorkload(std::shared_ptr<WorkloadConfig> config,
                            /*producer_id=*/0);
 }
 
+size_t PhasedWorkload::GetRecordSizeBytes() const {
+  return config_->GetRecordSizeBytes();
+}
+
 BulkLoadTrace PhasedWorkload::GetLoadTrace() const {
   Trace::Options options;
   options.value_size = config_->GetRecordSizeBytes() - sizeof(Request::Key);

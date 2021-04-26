@@ -23,6 +23,7 @@ class PhasedWorkload {
   static std::unique_ptr<PhasedWorkload> LoadFromString(
       const std::string& raw_config, uint32_t prng_seed = 42);
 
+  size_t GetRecordSizeBytes() const;
   BulkLoadTrace GetLoadTrace() const;
 
   class Producer;
