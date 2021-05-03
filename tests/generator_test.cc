@@ -343,4 +343,46 @@ TEST(GeneratorTest, CustomDatasetKeyTooLarge) {
   ASSERT_THROW(workload->SetCustomLoadDataset(dataset), std::invalid_argument);
 }
 
+TEST(GeneratorTest, NegativeLookups) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  distribution:\n"
+      "    type: custom\n"
+      "run:\n"
+      "- num_requests: 100\n"
+      "  read:\n"
+      "    proportion_pct: 50\n"
+      "    distribution:\n"
+      "      type: uniform\n"
+      "  negativeread:\n"
+      "    proportion_pct: 50\n"
+      "    distribution:\n"
+      "      type: zipfian\n"
+      "      theta: 0.99\n";
+  std::vector<Request::Key> dataset = {10, 12, 15, 16, 2000};
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+  workload->SetCustomLoadDataset(dataset);
+
+  for (auto& key : dataset) {
+    // The generator reserves the lower 16 bits for phase/thread IDs.
+    key <<= 16;
+  }
+
+  Session<NegativeLookupInterface> session(1);
+  session.db().keys.insert(dataset.begin(), dataset.end());
+  session.Initialize();
+  session.ReplayBulkLoadTrace(workload->GetLoadTrace());
+  const auto result = session.RunWorkload(*workload);
+  session.Terminate();
+
+  const size_t num_succeeded_reads = result.Reads().NumOperations();
+  const size_t num_failed_reads = result.NumFailedReads();
+  ASSERT_EQ(num_succeeded_reads + num_failed_reads, 100);
+  // Expect 50% of the reads to fail with a +/- 5% margin of error
+  ASSERT_GE(num_failed_reads, 45);
+  ASSERT_LE(num_failed_reads, 55);
+}
+
 }  // namespace

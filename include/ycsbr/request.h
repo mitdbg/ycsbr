@@ -11,7 +11,8 @@ struct Request {
     kRead = 1,
     kUpdate = 2,
     kScan = 3,
-    kReadModifyWrite = 4
+    kReadModifyWrite = 4,
+    kNegativeRead = 5
   };
   using Key = uint64_t;
 

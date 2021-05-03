@@ -14,19 +14,27 @@ namespace {
 void PrintRequest(const Request& req) {
   switch (req.op) {
     case Request::Operation::kInsert:
-      std::cerr << "[INSERT]  Key: 0x" << std::hex << req.key << std::dec
+      std::cerr << "[INSERT]    Key: 0x" << std::hex << req.key << std::dec
                 << "  Value Size: " << req.value_size << std::endl;
       break;
     case Request::Operation::kRead:
-      std::cerr << "[READ]    Key: 0x" << std::hex << req.key << std::dec
+      std::cerr << "[READ]      Key: 0x" << std::hex << req.key << std::dec
+                << std::endl;
+      break;
+    case Request::Operation::kReadModifyWrite:
+      std::cerr << "[R-M-W]     Key: 0x" << std::hex << req.key << std::dec
+                << "  Value Size: " << req.value_size << std::endl;
+      break;
+    case Request::Operation::kNegativeRead:
+      std::cerr << "[NEG-READ]  Key: 0x" << std::hex << req.key << std::dec
                 << std::endl;
       break;
     case Request::Operation::kScan:
-      std::cerr << "[SCAN]    Key: 0x" << std::hex << req.key << std::dec
+      std::cerr << "[SCAN]      Key: 0x" << std::hex << req.key << std::dec
                 << "  Length: " << req.scan_amount << std::endl;
       break;
     case Request::Operation::kUpdate:
-      std::cerr << "[UPDATE]  Key: 0x" << std::hex << req.key << std::dec
+      std::cerr << "[UPDATE]    Key: 0x" << std::hex << req.key << std::dec
                 << "  Value Size: " << req.value_size << std::endl;
       break;
   }

@@ -26,9 +26,9 @@ class BenchmarkResult {
   const FrozenMeter& Writes() const { return writes_; }
   const FrozenMeter& Scans() const { return scans_; }
 
-  size_t NumFailedReads() { return failed_reads_; }
-  size_t NumFailedWrites() { return failed_writes_; }
-  size_t NumFailedScans() { return failed_scans_; }
+  size_t NumFailedReads() const { return failed_reads_; }
+  size_t NumFailedWrites() const { return failed_writes_; }
+  size_t NumFailedScans() const { return failed_scans_; }
 
   static void PrintCSVHeader(std::ostream& out);
   void PrintAsCSV(std::ostream& out, bool print_header = true) const;

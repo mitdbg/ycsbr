@@ -14,5 +14,9 @@ using PRNG = std::mt19937;
 // us ensure inserts are always new keys.)
 inline constexpr uint64_t kMaxKey = (1ULL << 48) - 1;
 
+// PhaseIDs are 8 bit values. We reserve 0x00 (for loaded keys) and 0xFF (for
+// negative lookups).
+inline constexpr size_t kMaxNumPhases = (1ULL << 8) - 2;
+
 }  // namespace gen
 }  // namespace ycsbr

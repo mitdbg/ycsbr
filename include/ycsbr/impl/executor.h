@@ -131,7 +131,8 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
     }
 
     switch (req.op) {
-      case Request::Operation::kRead: {
+      case Request::Operation::kRead:
+      case Request::Operation::kNegativeRead: {
         bool succeeded = false;
         value_out.clear();
         const auto run_time = MeasurementHelper(

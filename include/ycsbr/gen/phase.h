@@ -20,6 +20,7 @@ struct Phase {
         num_requests_left(0),
         read_thres(0),
         rmw_thres(0),
+        negativeread_thres(0),
         scan_thres(0),
         update_thres(0),
         max_scan_length(0) {}
@@ -32,6 +33,9 @@ struct Phase {
     }
     if (rmw_chooser != nullptr) {
       rmw_chooser->SetItemCount(item_count);
+    }
+    if (negativeread_chooser != nullptr) {
+      negativeread_chooser->SetItemCount(item_count);
     }
     if (scan_chooser != nullptr) {
       scan_chooser->SetItemCount(item_count);
@@ -48,6 +52,9 @@ struct Phase {
     if (rmw_chooser != nullptr) {
       rmw_chooser->IncreaseItemCountBy(delta);
     }
+    if (negativeread_chooser != nullptr) {
+      negativeread_chooser->IncreaseItemCountBy(delta);
+    }
     if (scan_chooser != nullptr) {
       scan_chooser->IncreaseItemCountBy(delta);
     }
@@ -61,10 +68,11 @@ struct Phase {
   size_t num_inserts, num_inserts_left;
   size_t num_requests, num_requests_left;
 
-  uint32_t read_thres, rmw_thres, scan_thres, update_thres;
+  uint32_t read_thres, rmw_thres, negativeread_thres, scan_thres, update_thres;
   size_t max_scan_length;
   std::unique_ptr<Chooser> read_chooser;
   std::unique_ptr<Chooser> rmw_chooser;
+  std::unique_ptr<Chooser> negativeread_chooser;
   std::unique_ptr<Chooser> scan_chooser;
   std::unique_ptr<Chooser> scan_length_chooser;
   std::unique_ptr<Chooser> update_chooser;

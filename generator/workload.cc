@@ -167,6 +167,8 @@ Request Producer::Next() {
       next_op = Request::Operation::kRead;
     } else if (choice < this_phase.rmw_thres) {
       next_op = Request::Operation::kReadModifyWrite;
+    } else if (choice < this_phase.negativeread_thres) {
+      next_op = Request::Operation::kNegativeRead;
     } else if (choice < this_phase.scan_thres) {
       next_op = Request::Operation::kScan;
     } else if (choice < this_phase.update_thres) {
@@ -189,6 +191,14 @@ Request Producer::Next() {
       to_return = Request(Request::Operation::kReadModifyWrite,
                           ChooseKey(this_phase.rmw_chooser), 0,
                           valuegen_.NextValue(), valuegen_.value_size());
+      break;
+    }
+
+    case Request::Operation::kNegativeRead: {
+      Request::Key to_read = ChooseKey(this_phase.negativeread_chooser);
+      to_read |= (0xFF << 8);
+      to_return =
+          Request(Request::Operation::kNegativeRead, to_read, 0, nullptr, 0);
       break;
     }
 

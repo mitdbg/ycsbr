@@ -28,7 +28,7 @@ load:
 #   distribution:
 #     type: custom
 
-# Configures the workload phases. There can be at most 255 phases. When running
+# Configures the workload phases. There can be at most 254 phases. When running
 # with more than one thread, the number of requests will be divided equally
 # among all the threads.
 #
@@ -36,22 +36,28 @@ load:
 # is assumed to be 0%.
 run:
 - num_requests: 20
-  # For read, readmodifywrite, update, and scan operations, the allowed
-  # distributions are (i) uniform, and (ii) zipfian. For zipfian, you must
-  # choose a theta, which represents the skew. We only support values of theta
-  # in the exclusive range (0, 1). A larger value of theta means there is more
-  # skew.
+  # For read, readmodifywrite, negativeread, update, and scan operations, the
+  # allowed distributions are (i) uniform, and (ii) zipfian. For zipfian, you
+  # must choose a theta, which represents the skew. We only support values of
+  # theta in the exclusive range (0, 1). A larger value of theta means there is
+  # more skew.
   #
   # A read-modify-write consists of a point read followed by a point update for
   # the same key. Even though a read-modify-write consists of 2 physical
   # requests, we count it as 1 "logical" request towards the total
   # `num_requests` specified above. This is the same behavior as the YCSB driver.
   read:
-    proportion_pct: 50
+    proportion_pct: 45
     distribution:
       type: zipfian
       theta: 0.99
   readmodifywrite:
+    proportion_pct: 5
+    distribution:
+      type: uniform
+  # Negative reads are read requests that will be for keys that do not exist in
+  # the database.
+  negativeread:
     proportion_pct: 5
     distribution:
       type: uniform

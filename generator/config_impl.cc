@@ -28,6 +28,7 @@ const std::string kScanOpKey = "scan";
 const std::string kUpdateOpKey = "update";
 const std::string kInsertOpKey = "insert";
 const std::string kRMWOpKey = "readmodifywrite";
+const std::string kNegativeReadKey = "negativeread";
 
 // Assorted keys.
 const std::string kNumRecordsKey = "num_records";
@@ -228,9 +229,9 @@ std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
 
 size_t WorkloadConfigImpl::GetNumPhases() const {
   const size_t num_phases = raw_config_[kRunConfigKey].size();
-  if (num_phases > std::numeric_limits<uint8_t>::max()) {
+  if (num_phases > kMaxNumPhases) {
     throw std::invalid_argument(
-        "Too many workload phases (only 255 are supported).");
+        "Too many workload phases (only 254 are supported).");
   }
   return num_phases;
 }
@@ -269,6 +270,13 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
     phase.rmw_chooser = CreateChooser(phase_config[kRMWOpKey][kDistributionKey],
                                       "readmodifywrite", initial_chooser_size);
   }
+  if (phase_config[kNegativeReadKey]) {
+    phase.negativeread_thres =
+        phase_config[kNegativeReadKey][kProportionKey].as<uint32_t>();
+    phase.negativeread_chooser =
+        CreateChooser(phase_config[kNegativeReadKey][kDistributionKey],
+                      "negativeread", initial_chooser_size);
+  }
   if (phase_config[kScanOpKey]) {
     phase.scan_thres = phase_config[kScanOpKey][kProportionKey].as<uint32_t>();
     phase.max_scan_length =
@@ -300,8 +308,8 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
   if (phase_config[kInsertOpKey]) {
     insert_pct = phase_config[kInsertOpKey][kProportionKey].as<uint32_t>();
   }
-  if (insert_pct + phase.read_thres + phase.rmw_thres + phase.scan_thres +
-          phase.update_thres !=
+  if (insert_pct + phase.read_thres + phase.rmw_thres +
+          phase.negativeread_thres + phase.scan_thres + phase.update_thres !=
       100) {
     throw std::invalid_argument(
         "Request proportions must sum to exactly 100%.");
@@ -315,7 +323,8 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
   // Set the thresholds appropriately to allow for comparsion against a random
   // integer generated in the range [0, 100).
   phase.rmw_thres += phase.read_thres;
-  phase.scan_thres += phase.rmw_thres;
+  phase.negativeread_thres += phase.rmw_thres;
+  phase.scan_thres += phase.negativeread_thres;
   phase.update_thres += phase.scan_thres;
 
   return phase;
