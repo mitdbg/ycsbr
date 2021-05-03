@@ -11,6 +11,7 @@ class WorkloadConfigImpl : public WorkloadConfig {
  public:
   WorkloadConfigImpl(YAML::Node raw_config);
 
+  bool UsingCustomDataset() const override;
   size_t GetNumLoadRecords() const override;
   size_t GetRecordSizeBytes() const override;
   std::unique_ptr<Generator> GetLoadGenerator() const override;

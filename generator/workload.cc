@@ -46,13 +46,28 @@ PhasedWorkload::PhasedWorkload(std::shared_ptr<WorkloadConfig> config,
     : prng_(prng_seed),
       prng_seed_(prng_seed),
       config_(std::move(config)),
-      load_keys_(std::make_shared<std::vector<Request::Key>>(
-          config_->GetNumLoadRecords(), 0)) {
+      load_keys_(nullptr) {
+  // If we're using a custom dataset, the user will call SetCustomLoadDataset()
+  // to configure `load_keys_`.
+  if (config_->UsingCustomDataset()) return;
+
+  load_keys_ = std::make_shared<std::vector<Request::Key>>(
+      config_->GetNumLoadRecords(), 0);
   auto load_gen = config_->GetLoadGenerator();
   load_gen->Generate(prng_, load_keys_.get(), 0);
   ApplyPhaseAndProducerIDs(load_keys_->begin(), load_keys_->end(),
                            /*phase_id=*/0,
                            /*producer_id=*/0);
+}
+
+void PhasedWorkload::SetCustomLoadDataset(std::vector<Request::Key> dataset) {
+  assert(dataset.size() > 0);
+  if (*std::max_element(dataset.begin(), dataset.end()) > kMaxKey) {
+    throw std::invalid_argument("The maximum supported key is 2^48 - 1.");
+  }
+  load_keys_ = std::make_shared<std::vector<Request::Key>>(std::move(dataset));
+  ApplyPhaseAndProducerIDs(load_keys_->begin(), load_keys_->end(),
+                           /*phase_id=*/0, /*producer_id=*/0);
 }
 
 size_t PhasedWorkload::GetRecordSizeBytes() const {

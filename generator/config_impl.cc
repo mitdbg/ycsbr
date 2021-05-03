@@ -10,6 +10,7 @@
 #include "uniform_keygen.h"
 #include "yaml-cpp/yaml.h"
 #include "ycsbr/gen/keyrange.h"
+#include "ycsbr/gen/types.h"
 #include "zipfian_chooser.h"
 
 namespace {
@@ -41,6 +42,7 @@ const std::string kUniformDist = "uniform";
 const std::string kZipfianDist = "zipfian";
 const std::string kHotspotDist = "hotspot";
 const std::string kLinspaceDist = "linspace";
+const std::string kCustomDist = "custom";
 
 const std::string kRangeMinKey = "range_min";
 const std::string kRangeMaxKey = "range_max";
@@ -50,9 +52,6 @@ const std::string kHotRangeMinKey = "hot_" + kRangeMinKey;
 const std::string kHotRangeMaxKey = "hot_" + kRangeMaxKey;
 const std::string kLinspaceStartKey = "start_key";
 const std::string kLinspaceStepSize = "step_size";
-
-// We reserve 16 bits for tracking the phase IDs and producer IDs.
-const Request::Key kMaxKey = (1ULL << 48) - 1;
 
 // Only does a quick high-level structural validation. The semantic validation
 // is done when phases are retrieved.
@@ -125,7 +124,7 @@ gen::KeyRange ParseKeyRange(const YAML::Node& config,
         min_key_name + " and " + max_key_name +
         " specify an invalid range (min is greater than max).");
   }
-  if (range_min > kMaxKey || range_max > kMaxKey) {
+  if (range_min > gen::kMaxKey || range_max > gen::kMaxKey) {
     throw std::invalid_argument("Key values cannot exceed 2^48 - 1.");
   }
   return gen::KeyRange(range_min, range_max);
@@ -195,7 +194,13 @@ std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFromString(
 WorkloadConfigImpl::WorkloadConfigImpl(YAML::Node raw_config)
     : raw_config_(std::move(raw_config)) {}
 
+bool WorkloadConfigImpl::UsingCustomDataset() const {
+  return raw_config_[kLoadConfigKey][kDistributionKey][kDistributionTypeKey]
+             .as<std::string>() == kCustomDist;
+}
+
 size_t WorkloadConfigImpl::GetNumLoadRecords() const {
+  if (UsingCustomDataset()) return 0;
   return raw_config_[kLoadConfigKey][kNumRecordsKey].as<size_t>();
 }
 
@@ -209,6 +214,11 @@ size_t WorkloadConfigImpl::GetRecordSizeBytes() const {
 }
 
 std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
+  if (UsingCustomDataset()) {
+    throw std::invalid_argument(
+        "Cannot create a generator when a custom dataset is being used.");
+  }
+
   const YAML::Node& load_dist = raw_config_[kLoadConfigKey][kDistributionKey];
   if (!load_dist) {
     throw std::invalid_argument("Missing load distribution configuration.");

@@ -18,6 +18,7 @@ class WorkloadConfig {
   static std::shared_ptr<WorkloadConfig> LoadFromString(
       const std::string& raw_config);
 
+  virtual bool UsingCustomDataset() const = 0;
   virtual size_t GetNumLoadRecords() const = 0;
   virtual size_t GetRecordSizeBytes() const = 0;
   virtual std::unique_ptr<Generator> GetLoadGenerator() const = 0;

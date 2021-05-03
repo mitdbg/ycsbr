@@ -20,6 +20,14 @@ load:
     range_min: 100
     range_max: 1000000
 
+# If you want to use a custom dataset, specify the load distribution type as
+# "custom". Then in your code, you need to call
+# `PhasedWorkload::SetCustomLoadDataset()` before starting the workload.
+#
+# load:
+#   distribution:
+#     type: custom
+
 # Configures the workload phases. There can be at most 255 phases. When running
 # with more than one thread, the number of requests will be divided equally
 # among all the threads.

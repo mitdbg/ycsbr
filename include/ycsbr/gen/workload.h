@@ -16,17 +16,39 @@
 namespace ycsbr {
 namespace gen {
 
+// Represents a customizable workload with "phases". The workload configuration
+// must be specified in a YAML file. See `tests/workloads/custom.yml` for an
+// example.
 class PhasedWorkload {
  public:
+  // Creates a `PhasedWorkload` from the configuration in the provided file.
+  // Set the `prng_seed` to ensure reproducibility.
   static std::unique_ptr<PhasedWorkload> LoadFrom(
       const std::filesystem::path& config_file, uint32_t prng_seed = 42);
+
+  // Creates a `PhasedWorkload` from a configuration stored in a string. This
+  // method is mainly useful for testing purposes.
   static std::unique_ptr<PhasedWorkload> LoadFromString(
       const std::string& raw_config, uint32_t prng_seed = 42);
 
+  // Sets the "load dataset" that should be used. This method should be used
+  // when you want to use a custom dataset. Note that the workload config file's
+  // "load" section must specify that the distribution is "custom".
+  void SetCustomLoadDataset(std::vector<Request::Key> dataset);
+
+  // Retrieve the size of the records in the workload, in bytes.
   size_t GetRecordSizeBytes() const;
+
+  // Get a load trace that can be used to load a database with the records used
+  // in this workload.
+  //
+  // NOTE: If a custom dataset is used, `SetCustomLoadDataset()` must be called
+  // first before this method.
   BulkLoadTrace GetLoadTrace() const;
 
   class Producer;
+  // Used by the workload runner to prepare the workload for execution. You
+  // generally do not need to call this method.
   std::vector<Producer> GetProducers(size_t num_producers) const;
 
   // Not intended to be used directly. Use `LoadFrom()` instead.
@@ -39,6 +61,8 @@ class PhasedWorkload {
   std::shared_ptr<std::vector<Request::Key>> load_keys_;
 };
 
+// Used by the workload runner to actually execute the workload. This class
+// generally does not need to be used directly.
 class PhasedWorkload::Producer {
  public:
   void Prepare();
