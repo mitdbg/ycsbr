@@ -10,7 +10,8 @@ struct Request {
     kInsert = 0,
     kRead = 1,
     kUpdate = 2,
-    kScan = 3
+    kScan = 3,
+    kReadModifyWrite = 4
   };
   using Key = uint64_t;
 

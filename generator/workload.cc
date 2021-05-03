@@ -149,6 +149,8 @@ Request Producer::Next() {
     const uint32_t choice = op_dist_(prng_);
     if (choice < this_phase.read_thres) {
       next_op = Request::Operation::kRead;
+    } else if (choice < this_phase.rmw_thres) {
+      next_op = Request::Operation::kReadModifyWrite;
     } else if (choice < this_phase.scan_thres) {
       next_op = Request::Operation::kScan;
     } else if (choice < this_phase.update_thres) {
@@ -164,6 +166,13 @@ Request Producer::Next() {
     case Request::Operation::kRead: {
       to_return = Request(Request::Operation::kRead,
                           ChooseKey(this_phase.read_chooser), 0, nullptr, 0);
+      break;
+    }
+
+    case Request::Operation::kReadModifyWrite: {
+      to_return = Request(Request::Operation::kReadModifyWrite,
+                          ChooseKey(this_phase.rmw_chooser), 0,
+                          valuegen_.NextValue(), valuegen_.value_size());
       break;
     }
 

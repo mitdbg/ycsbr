@@ -26,6 +26,7 @@ const std::string kReadOpKey = "read";
 const std::string kScanOpKey = "scan";
 const std::string kUpdateOpKey = "update";
 const std::string kInsertOpKey = "insert";
+const std::string kRMWOpKey = "readmodifywrite";
 
 // Assorted keys.
 const std::string kNumRecordsKey = "num_records";
@@ -252,6 +253,12 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
         CreateChooser(phase_config[kReadOpKey][kDistributionKey], "read",
                       initial_chooser_size);
   }
+  if (phase_config[kRMWOpKey]) {
+    // Read-modify-write.
+    phase.rmw_thres = phase_config[kRMWOpKey][kProportionKey].as<uint32_t>();
+    phase.rmw_chooser = CreateChooser(phase_config[kRMWOpKey][kDistributionKey],
+                                      "readmodifywrite", initial_chooser_size);
+  }
   if (phase_config[kScanOpKey]) {
     phase.scan_thres = phase_config[kScanOpKey][kProportionKey].as<uint32_t>();
     phase.max_scan_length =
@@ -283,7 +290,8 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
   if (phase_config[kInsertOpKey]) {
     insert_pct = phase_config[kInsertOpKey][kProportionKey].as<uint32_t>();
   }
-  if (insert_pct + phase.read_thres + phase.scan_thres + phase.update_thres !=
+  if (insert_pct + phase.read_thres + phase.rmw_thres + phase.scan_thres +
+          phase.update_thres !=
       100) {
     throw std::invalid_argument(
         "Request proportions must sum to exactly 100%.");
@@ -296,7 +304,8 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
 
   // Set the thresholds appropriately to allow for comparsion against a random
   // integer generated in the range [0, 100).
-  phase.scan_thres += phase.read_thres;
+  phase.rmw_thres += phase.read_thres;
+  phase.scan_thres += phase.rmw_thres;
   phase.update_thres += phase.scan_thres;
 
   return phase;

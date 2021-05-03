@@ -221,6 +221,44 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
         break;
       }
 
+      case Request::Operation::kReadModifyWrite: {
+        bool succeeded = false;
+
+        // First, do the read.
+        const auto read_run_time = MeasurementHelper(
+            [this, &req, &value_out, &read_xor, &succeeded]() {
+              // Do the read.
+              succeeded = db_->Read(req.key, &value_out);
+              if (!succeeded) return;
+              // Force a read of the extracted value. We want to count this
+              // time against the read latency too.
+              read_xor ^= *reinterpret_cast<const uint32_t*>(value_out.c_str());
+            },
+            measure_latency);
+        tracker_.RecordRead(read_run_time, value_out.size(), succeeded);
+        if (!succeeded && options_.expect_request_success) {
+          throw std::runtime_error(
+              "Failed to read a record during a read-modify-write (expected to "
+              "succeed).");
+        }
+        // Skip the write if the read failed.
+        if (!succeeded) break;
+
+        // Now do the write.
+        const auto write_run_time = MeasurementHelper(
+            [this, &req, &succeeded]() {
+              succeeded = db_->Update(req.key, req.value, req.value_size);
+            },
+            measure_latency);
+        tracker_.RecordWrite(write_run_time, req.value_size, succeeded);
+        if (!succeeded && options_.expect_request_success) {
+          throw std::runtime_error(
+              "Failed to update a record during a read-modify-write (expected "
+              "to succeed).");
+        }
+        break;
+      }
+
       default:
         throw std::runtime_error("Unrecognized request operation!");
     }

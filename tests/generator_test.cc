@@ -241,4 +241,52 @@ TEST(GeneratorTest, Linspace) {
   }
 }
 
+TEST(GeneratorTest, ReadModifyWrite) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  num_records: 1000\n"
+      "  distribution:\n"
+      "    type: uniform\n"
+      "    range_min: 100\n"
+      "    range_max: 100000000\n"
+      "run:\n"
+      "- num_requests: 100\n"
+      "  readmodifywrite:\n"
+      "    proportion_pct: 90\n"
+      "    distribution:\n"
+      "      type: uniform\n"
+      "  scan:\n"
+      "    max_length: 100\n"
+      "    proportion_pct: 10\n"
+      "    distribution:\n"
+      "      type: uniform\n";
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+  Session<TestDatabaseInterface> session(1);
+  session.Initialize();
+  session.ReplayBulkLoadTrace(workload->GetLoadTrace());
+  session.RunWorkload(*workload);
+  session.Terminate();
+
+  ASSERT_EQ(session.db().initialize_worker_calls, 1);
+  ASSERT_EQ(session.db().shutdown_worker_calls, 1);
+  ASSERT_EQ(session.db().initialize_calls, 1);
+  ASSERT_EQ(session.db().shutdown_calls, 1);
+  ASSERT_EQ(session.db().bulk_load_calls, 1);
+  ASSERT_EQ(session.db().insert_calls, 0);
+  ASSERT_TRUE(session.db().scan_calls > 0);
+
+  // Read-modify-write implies a read paired with an update.
+  ASSERT_EQ(session.db().read_calls, session.db().update_calls);
+
+  // 100 requests in total, each read-modify-write is counted as 1 logical request.
+  ASSERT_EQ(session.db().read_calls + session.db().scan_calls, 100);
+
+  // 90% of the requests should be read-modify-writes. We allow +/- 5 requests
+  // to account for the PRNG (which is used to choose which operation to do.)
+  ASSERT_GE(session.db().read_calls, 85);
+  ASSERT_LE(session.db().read_calls, 95);
+}
+
 }  // namespace
