@@ -68,6 +68,7 @@ void PhasedWorkload::SetCustomLoadDataset(std::vector<Request::Key> dataset) {
   load_keys_ = std::make_shared<std::vector<Request::Key>>(std::move(dataset));
   ApplyPhaseAndProducerIDs(load_keys_->begin(), load_keys_->end(),
                            /*phase_id=*/0, /*producer_id=*/0);
+  std::shuffle(load_keys_->begin(), load_keys_->end(), prng_);
 }
 
 size_t PhasedWorkload::GetRecordSizeBytes() const {

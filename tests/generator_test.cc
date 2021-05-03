@@ -218,7 +218,8 @@ TEST(GeneratorTest, Linspace) {
   std::vector<Request::Key> dest(100, 0);
 
   // Simple case: generate dense keys from 0 to 9 inclusive.
-  gen::LinspaceGenerator gen1(/*num_keys=*/10, /*start_key=*/0, /*step_size=*/1);
+  gen::LinspaceGenerator gen1(/*num_keys=*/10, /*start_key=*/0,
+                              /*step_size=*/1);
   gen1.Generate(prng, &dest, 0);
   std::sort(dest.begin(), dest.begin() + 10);
   for (size_t i = 0; i < dest.size(); ++i) {
@@ -230,7 +231,8 @@ TEST(GeneratorTest, Linspace) {
   }
 
   // Larger key list - ensure all diffs are the same.
-  gen::LinspaceGenerator gen2(/*num_keys=*/100, /*start_key=*/100, /*step_size=*/123);
+  gen::LinspaceGenerator gen2(/*num_keys=*/100, /*start_key=*/100,
+                              /*step_size=*/123);
   gen2.Generate(prng, &dest, 0);
   std::sort(dest.begin(), dest.end());
   ASSERT_EQ(dest[0], 100);
@@ -280,13 +282,65 @@ TEST(GeneratorTest, ReadModifyWrite) {
   // Read-modify-write implies a read paired with an update.
   ASSERT_EQ(session.db().read_calls, session.db().update_calls);
 
-  // 100 requests in total, each read-modify-write is counted as 1 logical request.
+  // 100 requests in total, each read-modify-write is counted as 1 logical
+  // request.
   ASSERT_EQ(session.db().read_calls + session.db().scan_calls, 100);
 
   // 90% of the requests should be read-modify-writes. We allow +/- 5 requests
   // to account for the PRNG (which is used to choose which operation to do.)
   ASSERT_GE(session.db().read_calls, 85);
   ASSERT_LE(session.db().read_calls, 95);
+}
+
+TEST(GeneratorTest, CustomDataset) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  distribution:\n"
+      "    type: custom\n"
+      "run:\n"
+      "- num_requests: 100\n"
+      "  read:\n"
+      "    proportion_pct: 100\n"
+      "    distribution:\n"
+      "      type: uniform\n";
+  std::vector<Request::Key> dataset = {10, 12, 15, 16, 2000};
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+  workload->SetCustomLoadDataset(dataset);
+  BulkLoadTrace trace = workload->GetLoadTrace();
+  ASSERT_EQ(dataset.size(), trace.size());
+
+  Session<TestDatabaseInterface> session(1);
+  session.Initialize();
+  session.ReplayBulkLoadTrace(trace);
+  session.RunWorkload(*workload);
+  session.Terminate();
+
+  ASSERT_EQ(session.db().initialize_worker_calls, 1);
+  ASSERT_EQ(session.db().shutdown_worker_calls, 1);
+  ASSERT_EQ(session.db().initialize_calls, 1);
+  ASSERT_EQ(session.db().shutdown_calls, 1);
+  ASSERT_EQ(session.db().bulk_load_calls, 1);
+  ASSERT_EQ(session.db().read_calls, 100);
+}
+
+TEST(GeneratorTest, CustomDatasetKeyTooLarge) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  distribution:\n"
+      "    type: custom\n"
+      "run:\n"
+      "- num_requests: 100\n"
+      "  read:\n"
+      "    proportion_pct: 100\n"
+      "    distribution:\n"
+      "      type: uniform\n";
+  std::vector<Request::Key> dataset = {1ULL << 60};
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+  ASSERT_THROW(workload->SetCustomLoadDataset(dataset), std::invalid_argument);
 }
 
 }  // namespace
