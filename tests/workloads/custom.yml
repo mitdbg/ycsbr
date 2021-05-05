@@ -8,11 +8,12 @@
 record_size_bytes: 16
 
 # Configures the records that should be loaded before the workload runs. The
-# supported distributions are (i) uniform, and (ii) hotspot. For both uniform
-# and hotspot, you must specify a range (inclusive) for the keys. For hotspot
-# distributions, you must also specify an inclusive hot range that must lie
-# inside the overall range. You also need to specify a hot proportion
-# percentage (how many of the inserts should appear inside the hot range).
+# supported distributions are (i) uniform, (ii) hotspot, and (iii) linspace. For
+# both uniform and hotspot, you must specify a range (inclusive) for the keys.
+# For hotspot distributions, you must also specify an inclusive hot range that
+# must lie inside the overall range. You also need to specify a hot proportion
+# percentage (how many of the inserts should appear inside the hot range). For
+# linspace, see the example below.
 load:
   num_records: 10
   distribution:
@@ -34,6 +35,19 @@ load:
 #   distribution:
 #     type: custom
 
+# Linspace distributions are keys generated with a fixed spacing. You specify
+# the start key and step size. It is named after the analogous method in numpy.
+#
+# Example linspace distribution configuration that would generate the keys
+# `[100, 1100, 2100]`:
+#
+# load:
+#   num_records: 3
+#   distribution:
+#     type: linspace
+#     start_key: 100
+#     step_size: 1000
+
 # Configures the workload phases. There can be at most 254 phases. When running
 # with more than one thread, the number of requests will be divided equally
 # among all the threads.
@@ -43,10 +57,8 @@ load:
 run:
 - num_requests: 20
   # For read, readmodifywrite, negativeread, update, and scan operations, the
-  # allowed distributions are (i) uniform, and (ii) zipfian. For zipfian, you
-  # must choose a theta, which represents the skew. We only support values of
-  # theta in the exclusive range (0, 1). A larger value of theta means there is
-  # more skew.
+  # allowed distributions are (i) uniform, (ii) zipfian, and (iii) latest. See
+  # the example usages below for more information.
   #
   # A read-modify-write consists of a point read followed by a point update for
   # the same key. Even though a read-modify-write consists of 2 physical
@@ -56,6 +68,8 @@ run:
     proportion_pct: 45
     distribution:
       type: zipfian
+      # We only support values of theta in the exclusive range (0, 1). A larger
+      # value of theta means there is more skew.
       theta: 0.99
       # This is an optional value used to select different "hot" keys. If there
       # are multiple zipfian distributed operations, by default they will all
@@ -75,7 +89,11 @@ run:
   update:
     proportion_pct: 25
     distribution:
-      type: uniform
+      # The "latest" distribution favors choosing the most recently inserted
+      # records. Specify a theta value in the exclusive range (0, 1) to set the
+      # skew (a larger theta means more skew).
+      type: latest
+      theta: 0.99
   scan:
     proportion_pct: 10
     # For scans, you need to specify the maximum scan length. The scan length

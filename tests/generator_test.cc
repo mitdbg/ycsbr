@@ -5,6 +5,7 @@
 #include <unordered_set>
 
 #include "../generator/hotspot_keygen.h"
+#include "../generator/latest_chooser.h"
 #include "../generator/linspace_keygen.h"
 #include "../generator/sampling.h"
 #include "../generator/uniform_keygen.h"
@@ -425,6 +426,46 @@ TEST(GeneratorTest, ZipfianSalt) {
   // Should choose different "hot" keys if the salts are different.
   ASSERT_EQ(zipf1_max_key, zipf3_max_key);
   ASSERT_NE(zipf1_max_key, zipf2_max_key);
+}
+
+TEST(GeneratorTest, LatestChooser) {
+  constexpr size_t kItemCount = 100;
+  constexpr double kTheta = 0.99;
+  std::mt19937 prng(42);
+
+  LatestChooser latest(kItemCount, kTheta);
+
+  // Index -> Selection Frequency
+  std::unordered_map<size_t, size_t> sel_count;
+
+  // Count key selection frequency
+  for (size_t i = 0; i < 1000; ++i) {
+    ++sel_count[latest.Next(prng)];
+  }
+
+  const auto compare = [](const auto& pair1, const auto& pair2) {
+    return pair1.second < pair2.second;
+  };
+
+  const size_t max_index100 =
+      std::max_element(sel_count.begin(), sel_count.end(), compare)->first;
+
+  // Most frequently chosen index should be the "latest" index (99).
+  ASSERT_EQ(max_index100, 99);
+
+  // Now add new items.
+  latest.IncreaseItemCountBy(/*delta=*/100);
+
+  // Generate some more selections.
+  for (size_t i = 0; i < 2000; ++i) {
+    ++sel_count[latest.Next(prng)];
+  }
+
+  const size_t max_index200 =
+      std::max_element(sel_count.begin(), sel_count.end(), compare)->first;
+
+  // Most frequently chosen index should be the "latest" index (now 199).
+  ASSERT_EQ(max_index200, 199);
 }
 
 }  // namespace

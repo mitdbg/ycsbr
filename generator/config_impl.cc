@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "hotspot_keygen.h"
+#include "latest_chooser.h"
 #include "linspace_keygen.h"
 #include "uniform_chooser.h"
 #include "uniform_keygen.h"
@@ -39,11 +40,14 @@ const std::string kProportionKey = "proportion_pct";
 const std::string kScanMaxLengthKey = "max_length";
 
 // Distribution names and keys.
-const std::string kUniformDist = "uniform";
-const std::string kZipfianDist = "zipfian";
-const std::string kHotspotDist = "hotspot";
-const std::string kLinspaceDist = "linspace";
-const std::string kCustomDist = "custom";
+// Access operations are read, scan, update, readmodifywrite, and negativeread
+// (i.e., everything except insert).
+const std::string kUniformDist = "uniform";    // Insert and access ops
+const std::string kZipfianDist = "zipfian";    // Access ops only
+const std::string kHotspotDist = "hotspot";    // Insert ops only
+const std::string kLinspaceDist = "linspace";  // Insert ops only
+const std::string kCustomDist = "custom";      // Insert ops only
+const std::string kLatestDist = "latest";      // Access ops only
 
 const std::string kRangeMinKey = "range_min";
 const std::string kRangeMaxKey = "range_max";
@@ -116,6 +120,13 @@ std::unique_ptr<gen::Chooser> CreateChooser(
     }
     return std::make_unique<gen::ScatteredZipfianChooser>(item_count, theta,
                                                           salt);
+
+  } else if (dist_type == kLatestDist) {
+    const double theta = distribution_config[kZipfianThetaKey].as<double>();
+    if (theta <= 0.0 || theta >= 1.0) {
+      throw std::invalid_argument("Theta must be in the range (0, 1).");
+    }
+    return std::make_unique<gen::LatestChooser>(item_count, theta);
 
   } else {
     throw std::invalid_argument("Unsupported " + operation_name +

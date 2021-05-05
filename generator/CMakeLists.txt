@@ -19,6 +19,7 @@ target_sources(ycsbr-gen
     hash.h
     hotspot_keygen.cc
     hotspot_keygen.h
+    latest_chooser.h
     linspace_keygen.cc
     linspace_keygen.h
     sampling-inl.h
