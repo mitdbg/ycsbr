@@ -53,6 +53,7 @@ const std::string kHotRangeMinKey = "hot_" + kRangeMinKey;
 const std::string kHotRangeMaxKey = "hot_" + kRangeMaxKey;
 const std::string kLinspaceStartKey = "start_key";
 const std::string kLinspaceStepSize = "step_size";
+const std::string kSaltKey = "salt";
 
 // Only does a quick high-level structural validation. The semantic validation
 // is done when phases are retrieved.
@@ -107,7 +108,14 @@ std::unique_ptr<gen::Chooser> CreateChooser(
     if (theta <= 0.0 || theta >= 1.0) {
       throw std::invalid_argument("Zipfian theta must be in the range (0, 1).");
     }
-    return std::make_unique<gen::ScatteredZipfianChooser>(item_count, theta);
+    // Salts are optional and are used to create different "scatterings" (i.e.,
+    // to have two zipfian distributions choose different hot keys).
+    uint64_t salt = 0;
+    if (distribution_config[kSaltKey]) {
+      salt = distribution_config[kSaltKey].as<uint64_t>();
+    }
+    return std::make_unique<gen::ScatteredZipfianChooser>(item_count, theta,
+                                                          salt);
 
   } else {
     throw std::invalid_argument("Unsupported " + operation_name +

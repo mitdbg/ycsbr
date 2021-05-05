@@ -24,6 +24,12 @@ load:
 # "custom". Then in your code, you need to call
 # `PhasedWorkload::SetCustomLoadDataset()` before starting the workload.
 #
+# NOTE: Setting this "custom" distribution type is not required for using a
+# custom dataset; you can still call `SetCustomLoadDataset()` to overwrite the
+# load dataset that the workload generator would otherwise generate. However,
+# the initial workload creation will be faster if you set the distribution type
+# to "custom" in the workload file.
+#
 # load:
 #   distribution:
 #     type: custom
@@ -51,6 +57,11 @@ run:
     distribution:
       type: zipfian
       theta: 0.99
+      # This is an optional value used to select different "hot" keys. If there
+      # are multiple zipfian distributed operations, by default they will all
+      # have the same hot keys. If you selece different salts for the
+      # distributions, the generator will then choose different hot keys.
+      salt: 12345
   readmodifywrite:
     proportion_pct: 5
     distribution:

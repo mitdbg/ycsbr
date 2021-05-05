@@ -58,8 +58,14 @@ class ZipfianChooser : public Chooser {
 // that the popular values are scattered throughout the range.
 class ScatteredZipfianChooser : public ZipfianChooser {
  public:
-  ScatteredZipfianChooser(size_t item_count, double theta);
+  // Chooser instances with the same `scatter_salt` will choose the same hot
+  // keys. Set `scatter_salt` to change the "hot" keys.
+  ScatteredZipfianChooser(size_t item_count, double theta,
+                          uint64_t scatter_salt = 0);
   size_t Next(PRNG& prng) override;
+
+ private:
+  uint64_t scatter_salt_;
 };
 
 // Implementation details follow.
@@ -78,9 +84,9 @@ inline ZipfianChooser::ZipfianChooser(const size_t item_count,
   UpdateETA();
 }
 
-inline ScatteredZipfianChooser::ScatteredZipfianChooser(const size_t item_count,
-                                                        const double theta)
-    : ZipfianChooser(item_count, theta) {}
+inline ScatteredZipfianChooser::ScatteredZipfianChooser(
+    const size_t item_count, const double theta, const uint64_t scatter_salt)
+    : ZipfianChooser(item_count, theta), scatter_salt_(scatter_salt) {}
 
 inline size_t ZipfianChooser::Next(PRNG& prng) {
   const double u = dist_(prng);
@@ -94,7 +100,8 @@ inline size_t ZipfianChooser::Next(PRNG& prng) {
 inline size_t ScatteredZipfianChooser::Next(PRNG& prng) {
   // Most of the generator code assumes that we're running on a 64-bit system.
   static_assert(sizeof(uint64_t) == sizeof(size_t));
-  const uint64_t hashed_choice = FNVHash64(ZipfianChooser::Next(prng));
+  const uint64_t hashed_choice =
+      FNVHash64(ZipfianChooser::Next(prng) ^ scatter_salt_);
 #ifdef __SIZEOF_INT128__
   // Fast modulo for 64-bit integers. See
   // https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/

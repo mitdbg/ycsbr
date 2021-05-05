@@ -1,10 +1,14 @@
+#include <algorithm>
 #include <cstdint>
+#include <random>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "../generator/hotspot_keygen.h"
 #include "../generator/linspace_keygen.h"
 #include "../generator/sampling.h"
 #include "../generator/uniform_keygen.h"
+#include "../generator/zipfian_chooser.h"
 #include "db_interface.h"
 #include "gtest/gtest.h"
 #include "ycsbr/gen.h"
@@ -383,6 +387,44 @@ TEST(GeneratorTest, NegativeLookups) {
   // Expect 50% of the reads to fail with a +/- 5% margin of error
   ASSERT_GE(num_failed_reads, 45);
   ASSERT_LE(num_failed_reads, 55);
+}
+
+TEST(GeneratorTest, ZipfianSalt) {
+  constexpr size_t kItemCount = 100;
+  constexpr double kTheta = 0.99;
+  std::mt19937 prng(42);
+
+  ScatteredZipfianChooser zipf1(kItemCount, kTheta, 0);
+  ScatteredZipfianChooser zipf2(kItemCount, kTheta, 12345);
+  // Should produce the same distribution as `zipf1`. The selection frequencies
+  // may not be exactly the same, but the hot keys should be very similar (e.g.,
+  // the hottest keys should be the same).
+  ScatteredZipfianChooser zipf3(kItemCount, kTheta, 0);
+
+  // Key -> Selection Frequency
+  std::unordered_map<size_t, size_t> zipf1_count, zipf2_count, zipf3_count;
+
+  // Count key selection frequency
+  for (size_t i = 0; i < 1000; ++i) {
+    ++zipf1_count[zipf1.Next(prng)];
+    ++zipf2_count[zipf2.Next(prng)];
+    ++zipf3_count[zipf3.Next(prng)];
+  }
+
+  const auto compare = [](const auto& pair1, const auto& pair2) {
+    return pair1.second < pair2.second;
+  };
+
+  const size_t zipf1_max_key =
+      std::max_element(zipf1_count.begin(), zipf1_count.end(), compare)->first;
+  const size_t zipf2_max_key =
+      std::max_element(zipf2_count.begin(), zipf2_count.end(), compare)->first;
+  const size_t zipf3_max_key =
+      std::max_element(zipf3_count.begin(), zipf3_count.end(), compare)->first;
+
+  // Should choose different "hot" keys if the salts are different.
+  ASSERT_EQ(zipf1_max_key, zipf3_max_key);
+  ASSERT_NE(zipf1_max_key, zipf2_max_key);
 }
 
 }  // namespace
