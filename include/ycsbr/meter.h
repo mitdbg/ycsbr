@@ -28,6 +28,8 @@ class Meter {
     op_count_ += count;
   }
 
+  size_t Count() const { return op_count_; }
+
   FrozenMeter Freeze() &&;
   static FrozenMeter FreezeGroup(std::vector<Meter> meters);
 

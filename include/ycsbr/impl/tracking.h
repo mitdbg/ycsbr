@@ -11,6 +11,26 @@
 namespace ycsbr {
 namespace impl {
 
+class ThroughputSample {
+ public:
+  ThroughputSample(size_t records_processed, std::chrono::nanoseconds elapsed);
+
+  // Amount of time "captured" by this throughput sample.
+  template <typename Units>
+  Units ElapsedTime() const;
+  std::chrono::nanoseconds ElapsedTimeNanos() const;
+
+  // Throughput in millions of records processed per second.
+  double MRecordsPerSecond() const;
+
+  // The number of records processed.
+  size_t NumRecordsProcessed() const;
+
+ private:
+  size_t records_processed_;
+  std::chrono::nanoseconds elapsed_;
+};
+
 class MetricsTracker {
  public:
   MetricsTracker(size_t num_reads_hint = 100000,
@@ -52,6 +72,20 @@ class MetricsTracker {
 
   void SetReadXOR(uint32_t value) { read_xor_ = value; }
 
+  ThroughputSample GetSample() {
+    const auto now = std::chrono::steady_clock::now();
+    const size_t count = TotalOpCount();
+    const ThroughputSample result(count, now - last_sample_time_);
+    last_count_ = count;
+    last_sample_time_ = now;
+    return result;
+  }
+
+  void ResetSample() {
+    last_count_ = TotalOpCount();
+    last_sample_time_ = std::chrono::steady_clock::now();
+  }
+
   BenchmarkResult Finalize(std::chrono::nanoseconds total_run_time) {
     return BenchmarkResult(
         total_run_time, read_xor_, std::move(reads_).Freeze(),
@@ -86,10 +120,47 @@ class MetricsTracker {
   }
 
  private:
+  size_t TotalOpCount() const {
+    // NOTE: Each scanned key is counted as an operation.
+    return reads_.Count() + writes_.Count() + scans_.Count() + failed_reads_ +
+           failed_writes_ + failed_scans_;
+  }
+
   Meter reads_, writes_, scans_;
   size_t failed_reads_, failed_writes_, failed_scans_;
   uint32_t read_xor_;
+
+  size_t last_count_;
+  std::chrono::steady_clock::time_point last_sample_time_;
 };
+
+// Additional implementation details follow.
+
+inline ThroughputSample::ThroughputSample(size_t records_processed,
+                                          std::chrono::nanoseconds elapsed)
+    : records_processed_(records_processed), elapsed_(elapsed) {}
+
+inline double ThroughputSample::MRecordsPerSecond() const {
+  return records_processed_ /
+         // Converts the elapsed time into microseconds, represented using a
+         // double (to account for fractional microseconds).
+         std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(
+             elapsed_)
+             .count();
+}
+
+template <typename Units>
+inline Units ThroughputSample::ElapsedTime() const {
+  return std::chrono::duration_cast<Units>(elapsed_);
+}
+
+inline std::chrono::nanoseconds ThroughputSample::ElapsedTimeNanos() const {
+  return ElapsedTime<std::chrono::nanoseconds>();
+}
+
+inline size_t ThroughputSample::NumRecordsProcessed() const {
+  return records_processed_;
+}
 
 }  // namespace impl
 }  // namespace ycsbr

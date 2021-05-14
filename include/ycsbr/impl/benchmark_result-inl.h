@@ -25,8 +25,9 @@ inline Units BenchmarkResult::RunTime() const {
 }
 
 inline double BenchmarkResult::ThroughputMopsPerSecond() const {
-  uint64_t total_ops =
-      reads_.NumOperations() + writes_.NumOperations() + scans_.NumOperations();
+  const uint64_t total_ops = reads_.NumOperations() + writes_.NumOperations() +
+                             scans_.NumOperations() + failed_reads_ +
+                             failed_writes_ + failed_scans_;
   return total_ops /
          (double)std::chrono::duration_cast<std::chrono::microseconds>(
              run_time_)

@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <utility>
@@ -18,7 +19,7 @@ namespace impl {
 template <class DatabaseInterface, typename WorkloadProducer>
 class Executor {
  public:
-  Executor(DatabaseInterface* db, WorkloadProducer producer,
+  Executor(DatabaseInterface* db, WorkloadProducer producer, size_t id,
            const Flag* can_start, const RunOptions& options);
 
   Executor(const Executor&) = delete;
@@ -36,6 +37,7 @@ class Executor {
 
  private:
   void WorkloadLoop();
+  void SetupOutputFileIfNeeded();
 
   Flag ready_;
   const Flag* can_start_;
@@ -44,25 +46,33 @@ class Executor {
   DatabaseInterface* db_;
   WorkloadProducer producer_;
   MetricsTracker tracker_;
+  size_t id_;
 
   const RunOptions options_;
-  size_t sampling_counter_;
+  size_t latency_sampling_counter_;
+  size_t throughput_sampling_counter_;
+
+  // Used to print out throughput samples, if requested.
+  std::ofstream throughput_output_file_;
 };
 
 // Implementation details follow.
 
 template <class DatabaseInterface, typename WorkloadProducer>
 inline Executor<DatabaseInterface, WorkloadProducer>::Executor(
-    DatabaseInterface* db, WorkloadProducer producer, const Flag* can_start,
-    const RunOptions& options)
+    DatabaseInterface* db, WorkloadProducer producer, const size_t id,
+    const Flag* can_start, const RunOptions& options)
     : ready_(),
       can_start_(can_start),
       done_(),
       db_(db),
       producer_(std::move(producer)),
       tracker_(),
+      id_(id),
       options_(options),
-      sampling_counter_(0) {}
+      latency_sampling_counter_(0),
+      throughput_sampling_counter_(0),
+      throughput_output_file_() {}
 
 template <class DatabaseInterface, typename WorkloadProducer>
 inline void Executor<DatabaseInterface, WorkloadProducer>::WaitForReady()
@@ -102,6 +112,9 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::operator()() {
   // Run any needed preparation code.
   producer_.Prepare();
 
+  // Sets up the throughput sample output file, if needed.
+  SetupOutputFileIfNeeded();
+
   // Now ready to proceed; wait until we're told to start.
   ready_.Raise();
   can_start_->Wait();
@@ -114,20 +127,32 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::operator()() {
 }
 
 template <class DatabaseInterface, typename WorkloadProducer>
+inline void
+Executor<DatabaseInterface, WorkloadProducer>::SetupOutputFileIfNeeded() {
+  if (options_.throughput_sample_period == 0) return;
+  throughput_output_file_ = std::ofstream(
+      options_.output_dir /
+      (options_.throughput_output_file_prefix + std::to_string(id_) + ".csv"));
+  throughput_output_file_ << "mrecords_per_s,elapsed_ns" << std::endl;
+}
+
+template <class DatabaseInterface, typename WorkloadProducer>
 inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
   // Initialize state needed for the replay.
   uint32_t read_xor = 0;
   std::string value_out;
   std::vector<std::pair<Request::Key, std::string>> scan_out;
 
+  tracker_.ResetSample();
+
   // Run our trace slice.
   while (producer_.HasNext()) {
     const auto& req = producer_.Next();
 
     bool measure_latency = false;
-    if (++sampling_counter_ >= options_.latency_sample_period) {
+    if (++latency_sampling_counter_ >= options_.latency_sample_period) {
       measure_latency = true;
-      sampling_counter_ = 0;
+      latency_sampling_counter_ = 0;
     }
 
     switch (req.op) {
@@ -262,6 +287,14 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
 
       default:
         throw std::runtime_error("Unrecognized request operation!");
+    }
+
+    if (options_.throughput_sample_period > 0 &&
+        ++throughput_sampling_counter_ >= options_.throughput_sample_period) {
+      auto sample = tracker_.GetSample();
+      throughput_output_file_ << sample.MRecordsPerSecond() << ","
+                              << sample.ElapsedTimeNanos() << std::endl;
+      throughput_sampling_counter_ = 0;
     }
   }
   // Used to prevent optimizing away reads.

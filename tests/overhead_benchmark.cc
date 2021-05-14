@@ -86,7 +86,7 @@ void BM_ExecutorLoopOverhead(benchmark::State& state) {
   NoOpInterface db;
   impl::Flag can_start;
   impl::Executor<NoOpInterface, TraceWorkload::Producer> executor(
-      &db, producers.at(0), &can_start, roptions);
+      &db, producers.at(0), 0, &can_start, roptions);
   for (auto _ : state) {
     executor.BM_WorkloadLoop();
   }
