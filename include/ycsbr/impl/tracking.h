@@ -75,7 +75,7 @@ class MetricsTracker {
   ThroughputSample GetSample() {
     const auto now = std::chrono::steady_clock::now();
     const size_t count = TotalOpCount();
-    const ThroughputSample result(count, now - last_sample_time_);
+    const ThroughputSample result(count - last_count_, now - last_sample_time_);
     last_count_ = count;
     last_sample_time_ = now;
     return result;

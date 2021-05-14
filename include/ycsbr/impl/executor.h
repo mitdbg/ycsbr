@@ -130,9 +130,14 @@ template <class DatabaseInterface, typename WorkloadProducer>
 inline void
 Executor<DatabaseInterface, WorkloadProducer>::SetupOutputFileIfNeeded() {
   if (options_.throughput_sample_period == 0) return;
-  throughput_output_file_ = std::ofstream(
+  const auto filename =
       options_.output_dir /
-      (options_.throughput_output_file_prefix + std::to_string(id_) + ".csv"));
+      (options_.throughput_output_file_prefix + std::to_string(id_) + ".csv");
+  throughput_output_file_ = std::ofstream(filename);
+  if (throughput_output_file_.fail()) {
+    throw std::invalid_argument("Failed to create output file: " +
+                                filename.string());
+  }
   throughput_output_file_ << "mrecords_per_s,elapsed_ns" << std::endl;
 }
 
@@ -293,7 +298,7 @@ inline void Executor<DatabaseInterface, WorkloadProducer>::WorkloadLoop() {
         ++throughput_sampling_counter_ >= options_.throughput_sample_period) {
       auto sample = tracker_.GetSample();
       throughput_output_file_ << sample.MRecordsPerSecond() << ","
-                              << sample.ElapsedTimeNanos() << std::endl;
+                              << sample.ElapsedTimeNanos().count() << std::endl;
       throughput_sampling_counter_ = 0;
     }
   }
