@@ -98,14 +98,23 @@ bool ValidateConfig(const YAML::Node& raw_config) {
   return true;
 }
 
+// NOTE: This method will release the lock while the chooser is being
+// constructed. It will the reacquire the lock before returning. This is done to
+// avoid holding the lock while creating the generator, which may take a lot of
+// time.
 std::unique_ptr<gen::Chooser> CreateChooser(
-    const YAML::Node& distribution_config, const std::string& operation_name,
-    const size_t item_count) {
+    std::unique_lock<std::mutex>& lock, const YAML::Node& distribution_config,
+    const std::string& operation_name, const size_t item_count) {
+  assert(lock.owns_lock());
+
   const std::string& dist_type =
       distribution_config[kDistributionTypeKey].as<std::string>();
 
   if (dist_type == kUniformDist) {
-    return std::make_unique<gen::UniformChooser>(item_count);
+    lock.unlock();
+    auto chooser = std::make_unique<gen::UniformChooser>(item_count);
+    lock.lock();
+    return chooser;
 
   } else if (dist_type == kZipfianDist) {
     const double theta = distribution_config[kZipfianThetaKey].as<double>();
@@ -118,15 +127,21 @@ std::unique_ptr<gen::Chooser> CreateChooser(
     if (distribution_config[kSaltKey]) {
       salt = distribution_config[kSaltKey].as<uint64_t>();
     }
-    return std::make_unique<gen::ScatteredZipfianChooser>(item_count, theta,
-                                                          salt);
+    lock.unlock();
+    auto chooser =
+        std::make_unique<gen::ScatteredZipfianChooser>(item_count, theta, salt);
+    lock.lock();
+    return chooser;
 
   } else if (dist_type == kLatestDist) {
     const double theta = distribution_config[kZipfianThetaKey].as<double>();
     if (theta <= 0.0 || theta >= 1.0) {
       throw std::invalid_argument("Theta must be in the range (0, 1).");
     }
-    return std::make_unique<gen::LatestChooser>(item_count, theta);
+    lock.unlock();
+    auto chooser = std::make_unique<gen::LatestChooser>(item_count, theta);
+    lock.lock();
+    return chooser;
 
   } else {
     throw std::invalid_argument("Unsupported " + operation_name +
@@ -150,13 +165,20 @@ gen::KeyRange ParseKeyRange(const YAML::Node& config,
   return gen::KeyRange(range_min, range_max);
 }
 
+// NOTE: This method will release the passed in mutex. This is to avoid holding
+// the lock while creating the generator, which may take a lot of time.
 std::unique_ptr<gen::Generator> CreateGenerator(
-    const YAML::Node& distribution_config, const size_t num_keys) {
+    std::unique_lock<std::mutex>& lock, const YAML::Node& distribution_config,
+    const size_t num_keys) {
+  assert(lock.owns_lock());
+
   const std::string dist_type =
       distribution_config[kDistributionTypeKey].as<std::string>();
   if (dist_type == kUniformDist) {
     gen::KeyRange range =
         ParseKeyRange(distribution_config, kRangeMinKey, kRangeMaxKey);
+
+    lock.unlock();
     return std::make_unique<gen::UniformGenerator>(num_keys, std::move(range));
 
   } else if (dist_type == kHotspotDist) {
@@ -166,6 +188,8 @@ std::unique_ptr<gen::Generator> CreateGenerator(
         ParseKeyRange(distribution_config, kHotRangeMinKey, kHotRangeMaxKey);
     const uint32_t hot_proportion_pct =
         distribution_config[kHotspotProportionKey].as<uint32_t>();
+
+    lock.unlock();
     return std::make_unique<gen::HotspotGenerator>(
         num_keys, hot_proportion_pct, std::move(overall), std::move(hot));
 
@@ -174,10 +198,13 @@ std::unique_ptr<gen::Generator> CreateGenerator(
         distribution_config[kLinspaceStartKey].as<Request::Key>();
     const Request::Key step_size =
         distribution_config[kLinspaceStepSize].as<Request::Key>();
+
+    lock.unlock();
     return std::make_unique<gen::LinspaceGenerator>(num_keys, start_key,
                                                     step_size);
 
   } else {
+    lock.unlock();
     throw std::invalid_argument("Unsupported load/insert distribution: " +
                                 dist_type);
   }
@@ -215,16 +242,27 @@ WorkloadConfigImpl::WorkloadConfigImpl(YAML::Node raw_config)
     : raw_config_(std::move(raw_config)) {}
 
 bool WorkloadConfigImpl::UsingCustomDataset() const {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return UsingCustomDatasetImpl();
+}
+
+bool WorkloadConfigImpl::UsingCustomDatasetImpl() const {
   return raw_config_[kLoadConfigKey][kDistributionKey][kDistributionTypeKey]
              .as<std::string>() == kCustomDist;
 }
 
 size_t WorkloadConfigImpl::GetNumLoadRecords() const {
-  if (UsingCustomDataset()) return 0;
+  std::unique_lock<std::mutex> lock(mutex_);
+  return GetNumLoadRecordsImpl();
+}
+
+size_t WorkloadConfigImpl::GetNumLoadRecordsImpl() const {
+  if (UsingCustomDatasetImpl()) return 0;
   return raw_config_[kLoadConfigKey][kNumRecordsKey].as<size_t>();
 }
 
 size_t WorkloadConfigImpl::GetRecordSizeBytes() const {
+  std::unique_lock<std::mutex> lock(mutex_);
   const size_t record_size_bytes =
       raw_config_[kRecordSizeBytesKey].as<size_t>();
   if (record_size_bytes < 9) {
@@ -234,7 +272,8 @@ size_t WorkloadConfigImpl::GetRecordSizeBytes() const {
 }
 
 std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
-  if (UsingCustomDataset()) {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (UsingCustomDatasetImpl()) {
     throw std::invalid_argument(
         "Cannot create a generator when a custom dataset is being used.");
   }
@@ -243,10 +282,11 @@ std::unique_ptr<Generator> WorkloadConfigImpl::GetLoadGenerator() const {
   if (!load_dist) {
     throw std::invalid_argument("Missing load distribution configuration.");
   }
-  return CreateGenerator(load_dist, GetNumLoadRecords());
+  return CreateGenerator(lock, load_dist, GetNumLoadRecordsImpl());
 }
 
 size_t WorkloadConfigImpl::GetNumPhases() const {
+  std::unique_lock<std::mutex> lock(mutex_);
   const size_t num_phases = raw_config_[kRunConfigKey].size();
   if (num_phases > kMaxNumPhases) {
     throw std::invalid_argument(
@@ -258,6 +298,8 @@ size_t WorkloadConfigImpl::GetNumPhases() const {
 Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
                                    const ProducerID producer_id,
                                    const size_t num_producers) const {
+  std::unique_lock<std::mutex> lock(mutex_);
+
   // We set the item counts of all choosers to this dummy initial value because
   // they will be properly set in Producer::Prepare().
   const size_t initial_chooser_size = 1;
@@ -280,20 +322,21 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
 
     // Create the read key chooser.
     phase.read_chooser =
-        CreateChooser(phase_config[kReadOpKey][kDistributionKey], "read",
+        CreateChooser(lock, phase_config[kReadOpKey][kDistributionKey], "read",
                       initial_chooser_size);
   }
   if (phase_config[kRMWOpKey]) {
     // Read-modify-write.
     phase.rmw_thres = phase_config[kRMWOpKey][kProportionKey].as<uint32_t>();
-    phase.rmw_chooser = CreateChooser(phase_config[kRMWOpKey][kDistributionKey],
-                                      "readmodifywrite", initial_chooser_size);
+    phase.rmw_chooser =
+        CreateChooser(lock, phase_config[kRMWOpKey][kDistributionKey],
+                      "readmodifywrite", initial_chooser_size);
   }
   if (phase_config[kNegativeReadKey]) {
     phase.negativeread_thres =
         phase_config[kNegativeReadKey][kProportionKey].as<uint32_t>();
     phase.negativeread_chooser =
-        CreateChooser(phase_config[kNegativeReadKey][kDistributionKey],
+        CreateChooser(lock, phase_config[kNegativeReadKey][kDistributionKey],
                       "negativeread", initial_chooser_size);
   }
   if (phase_config[kScanOpKey]) {
@@ -307,7 +350,7 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
 
     // Create the scan key chooser.
     phase.scan_chooser =
-        CreateChooser(phase_config[kScanOpKey][kDistributionKey], "scan",
+        CreateChooser(lock, phase_config[kScanOpKey][kDistributionKey], "scan",
                       initial_chooser_size);
 
     // We need to add 1 because the UniformChooser returns values in a 0-based
@@ -321,8 +364,8 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
 
     // Create the update key chooser.
     phase.update_chooser =
-        CreateChooser(phase_config[kUpdateOpKey][kDistributionKey], "update",
-                      initial_chooser_size);
+        CreateChooser(lock, phase_config[kUpdateOpKey][kDistributionKey],
+                      "update", initial_chooser_size);
   }
   if (phase_config[kInsertOpKey]) {
     insert_pct = phase_config[kInsertOpKey][kProportionKey].as<uint32_t>();
@@ -351,6 +394,8 @@ Phase WorkloadConfigImpl::GetPhase(const PhaseID phase_id,
 
 std::unique_ptr<Generator> WorkloadConfigImpl::GetGeneratorForPhase(
     const Phase& phase) const {
+  std::unique_lock<std::mutex> lock(mutex_);
+
   const YAML::Node& phase_config = raw_config_[kRunConfigKey][phase.phase_id];
   if (!phase_config) {
     throw std::invalid_argument("Nonexistent phase id: " + phase.phase_id);
@@ -361,7 +406,7 @@ std::unique_ptr<Generator> WorkloadConfigImpl::GetGeneratorForPhase(
   }
 
   const YAML::Node& dist = phase_config[kInsertOpKey][kDistributionKey];
-  return CreateGenerator(dist, phase.num_inserts);
+  return CreateGenerator(lock, dist, phase.num_inserts);
 }
 
 }  // namespace gen

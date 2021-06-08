@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 #include "yaml-cpp/yaml.h"
 #include "ycsbr/gen/config.h"
 #include "ycsbr/gen/types.h"
@@ -23,7 +25,18 @@ class WorkloadConfigImpl : public WorkloadConfig {
       const Phase& phase) const override;
 
  private:
-  YAML::Node raw_config_;
+  bool UsingCustomDatasetImpl() const;
+  size_t GetNumLoadRecordsImpl() const;
+
+  // The config can be accessed concurrently. Even though all our methods are
+  // `const`, it turns out that some `const` methods on `YAML::Node` are not
+  // thread-safe. To be safe, we guard `raw_config_` with a mutex. This config
+  // is not meant to be accessed during the workload, so this mutex will not
+  // impact workload scalability.
+  //
+  // See https://github.com/jbeder/yaml-cpp/issues/419
+  mutable std::mutex mutex_;
+  const YAML::Node raw_config_;
 };
 
 }  // namespace gen
