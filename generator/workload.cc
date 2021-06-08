@@ -159,7 +159,9 @@ Request Producer::Next() {
   Request::Operation next_op = Request::Operation::kInsert;
 
   // If there are more requests left than inserts, we can randomly decide what
-  // request to do next. Otherwise we must do an insert.
+  // request to do next. Otherwise we must do an insert. Note that we adjust
+  // `op_dist_` as needed to ensure that we do not generate an insert once
+  // `this_phase.num_inserts_left == 0`.
   if (this_phase.num_inserts_left < this_phase.num_requests_left) {
     // Decide what operation to do.
     const uint32_t choice = op_dist_(prng_);
@@ -227,9 +229,17 @@ Request Producer::Next() {
       this_phase.IncreaseItemCountBy(1);
       if (this_phase.num_inserts_left == 0) {
         // No more inserts left. We adjust the operation selection distribution
-        // to make sure we no longer select inserts during this phase.
-        op_dist_ =
-            std::uniform_int_distribution<uint32_t>(0, this_phase.update_thres);
+        // to make sure we no longer select inserts during this phase. Note that
+        // the bounds used below are inclusive.
+        if (this_phase.update_thres > 0) {
+          op_dist_ = std::uniform_int_distribution<uint32_t>(
+              0, this_phase.update_thres - 1);
+        } else {
+          // This case should only occur if the workload is insert-only. However
+          // this means that this was the last request (we decrement the
+          // requests counter below).
+          assert(this_phase.num_requests_left == 1);
+        }
       }
       break;
     }

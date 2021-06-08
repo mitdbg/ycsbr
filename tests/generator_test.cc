@@ -468,4 +468,33 @@ TEST(GeneratorTest, LatestChooser) {
   ASSERT_EQ(max_index200, 199);
 }
 
+TEST(GeneratorTest, InsertOnly) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  num_records: 100\n"
+      "  distribution:\n"
+      "    type: uniform\n"
+      "    range_min: 100\n"
+      "    range_max: 100000\n"
+      "run:\n"
+      "- num_requests: 100\n"
+      "  insert:\n"
+      "    proportion_pct: 100\n"
+      "    distribution:\n"
+      "      type: uniform\n"
+      "      range_min: 100\n"
+      "      range_max: 100000\n";
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+
+  Session<TestDatabaseInterface> session(1);
+  session.Initialize();
+  session.ReplayBulkLoadTrace(workload->GetLoadTrace());
+  session.RunWorkload(*workload);
+  session.Terminate();
+
+  ASSERT_EQ(session.db().insert_calls, 100);
+}
+
 }  // namespace
