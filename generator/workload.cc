@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+#include "ycsbr/buffered_workload.h"
 #include "ycsbr/gen/types.h"
 
 namespace {
@@ -25,6 +26,10 @@ void ApplyPhaseAndProducerIDs(std::vector<Request::Key>::iterator begin,
 }  // namespace
 
 namespace ycsbr {
+
+// For convenience, instantiate a `BufferedWorkload` for `PhasedWorkload`.
+template class BufferedWorkload<gen::PhasedWorkload>;
+
 namespace gen {
 
 using Producer = PhasedWorkload::Producer;

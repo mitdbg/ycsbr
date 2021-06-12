@@ -16,6 +16,7 @@ target_sources(ycsbr
     ${srcdir}/impl/affinity.h
     ${srcdir}/impl/benchmark_result-inl.h
     ${srcdir}/impl/benchmark-inl.h
+    ${srcdir}/impl/buffered_workload-inl.h
     ${srcdir}/impl/executor.h
     ${srcdir}/impl/flag.h
     ${srcdir}/impl/session-inl.h
@@ -26,6 +27,7 @@ target_sources(ycsbr
     ${srcdir}/impl/util.h
     ${srcdir}/benchmark_result.h
     ${srcdir}/benchmark.h
+    ${srcdir}/buffered_workload.h
     ${srcdir}/db_example.h
     ${srcdir}/meter.h
     ${srcdir}/request.h

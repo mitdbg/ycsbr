@@ -13,6 +13,7 @@
 
 #include "benchmark_result.h"
 #include "benchmark.h"
+#include "buffered_workload.h"
 #include "db_example.h"
 #include "meter.h"
 #include "request.h"

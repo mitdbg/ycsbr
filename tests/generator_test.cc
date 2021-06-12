@@ -497,4 +497,48 @@ TEST(GeneratorTest, InsertOnly) {
   ASSERT_EQ(session.db().insert_calls, 100);
 }
 
+TEST(GeneratorTest, BufferedWorkload) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  num_records: 100\n"
+      "  distribution:\n"
+      "    type: uniform\n"
+      "    range_min: 100\n"
+      "    range_max: 100000\n"
+      "run:\n"
+      "- num_requests: 100\n"
+      "  insert:\n"
+      "    proportion_pct: 50\n"
+      "    distribution:\n"
+      "      type: uniform\n"
+      "      range_min: 100\n"
+      "      range_max: 100000\n"
+      "  read:\n"
+      "    proportion_pct: 50\n"
+      "    distribution:\n"
+      "      type: uniform\n";
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+  BufferedWorkload<PhasedWorkload> bworkload(*workload);
+
+  constexpr size_t num_workers = 2;
+  Session<TestDatabaseInterface> session(num_workers);
+  session.Initialize();
+  session.ReplayBulkLoadTrace(bworkload.workload().GetLoadTrace());
+  session.RunWorkload(bworkload);  // Using the buffered workload here.
+  session.Terminate();
+
+  ASSERT_EQ(session.db().read_calls, 50);
+  ASSERT_EQ(session.db().insert_calls, 50);
+
+  ASSERT_EQ(session.db().initialize_worker_calls, num_workers);
+  ASSERT_EQ(session.db().shutdown_worker_calls, num_workers);
+  ASSERT_EQ(session.db().initialize_calls, 1);
+  ASSERT_EQ(session.db().shutdown_calls, 1);
+  ASSERT_EQ(session.db().bulk_load_calls, 1);
+  ASSERT_EQ(session.db().scan_calls, 0);
+  ASSERT_EQ(session.db().update_calls, 0);
+}
+
 }  // namespace
