@@ -22,14 +22,20 @@ namespace gen {
 class PhasedWorkload {
  public:
   // Creates a `PhasedWorkload` from the configuration in the provided file.
-  // Set the `prng_seed` to ensure reproducibility.
+  // Set the `prng_seed` to ensure reproducibility. Setting
+  // `set_record_size_bytes` to a positive value will override the record size
+  // specified in the workload file, if any.
   static std::unique_ptr<PhasedWorkload> LoadFrom(
-      const std::filesystem::path& config_file, uint32_t prng_seed = 42);
+      const std::filesystem::path& config_file, uint32_t prng_seed = 42,
+      const size_t set_record_size_bytes = 0);
 
   // Creates a `PhasedWorkload` from a configuration stored in a string. This
-  // method is mainly useful for testing purposes.
+  // method is mainly useful for testing purposes. Setting
+  // `set_record_size_bytes` to a positive value will override the record size
+  // specified in the workload file, if any.
   static std::unique_ptr<PhasedWorkload> LoadFromString(
-      const std::string& raw_config, uint32_t prng_seed = 42);
+      const std::string& raw_config, uint32_t prng_seed = 42,
+      const size_t set_record_size_bytes = 0);
 
   // Sets the "load dataset" that should be used. This method should be used
   // when you want to use a custom dataset. Note that the workload config file's

@@ -66,11 +66,6 @@ bool ValidateConfig(const YAML::Node& raw_config) {
     std::cerr << "ERROR: Workload config needs to be a YAML map." << std::endl;
     return false;
   }
-  if (!raw_config[kRecordSizeBytesKey]) {
-    std::cerr << "ERROR: Missing workload config '" << kRecordSizeBytesKey
-              << "' value." << std::endl;
-    return false;
-  }
   if (!raw_config[kLoadConfigKey]) {
     std::cerr << "ERROR: Missing workload config '" << kLoadConfigKey
               << "' section." << std::endl;
@@ -216,13 +211,15 @@ namespace ycsbr {
 namespace gen {
 
 std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFrom(
-    const std::filesystem::path& config_file) {
+    const std::filesystem::path& config_file,
+    const size_t set_record_size_bytes) {
   try {
     YAML::Node node = YAML::LoadFile(config_file);
     if (!ValidateConfig(node)) {
       throw std::invalid_argument("Invalid workload configuration file.");
     }
-    return std::make_shared<WorkloadConfigImpl>(std::move(node));
+    return std::make_shared<WorkloadConfigImpl>(std::move(node),
+                                                set_record_size_bytes);
   } catch (const YAML::BadFile&) {
     throw std::invalid_argument(
         "Could not parse the workload configuration file.");
@@ -230,16 +227,19 @@ std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFrom(
 }
 
 std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFromString(
-    const std::string& raw_config) {
+    const std::string& raw_config, const size_t set_record_size_bytes) {
   YAML::Node node = YAML::Load(raw_config);
   if (!ValidateConfig(node)) {
     throw std::invalid_argument("Invalid workload configuration string.");
   }
-  return std::make_shared<WorkloadConfigImpl>(std::move(node));
+  return std::make_shared<WorkloadConfigImpl>(std::move(node),
+                                              set_record_size_bytes);
 }
 
-WorkloadConfigImpl::WorkloadConfigImpl(YAML::Node raw_config)
-    : raw_config_(std::move(raw_config)) {}
+WorkloadConfigImpl::WorkloadConfigImpl(YAML::Node raw_config,
+                                       const size_t set_record_size_bytes)
+    : raw_config_(std::move(raw_config)),
+      set_record_size_bytes_(set_record_size_bytes) {}
 
 bool WorkloadConfigImpl::UsingCustomDataset() const {
   std::unique_lock<std::mutex> lock(mutex_);
@@ -263,8 +263,15 @@ size_t WorkloadConfigImpl::GetNumLoadRecordsImpl() const {
 
 size_t WorkloadConfigImpl::GetRecordSizeBytes() const {
   std::unique_lock<std::mutex> lock(mutex_);
-  const size_t record_size_bytes =
-      raw_config_[kRecordSizeBytesKey].as<size_t>();
+  size_t record_size_bytes;
+
+  if (raw_config_[kRecordSizeBytesKey]) {
+    record_size_bytes = raw_config_[kRecordSizeBytesKey].as<size_t>();
+  } else if (set_record_size_bytes_ != 0) {
+    record_size_bytes = set_record_size_bytes_;
+  } else {
+    throw std::invalid_argument("No record size was specified.");
+  }
   if (record_size_bytes < 9) {
     throw std::invalid_argument("Record sizes must be at least 9 bytes.");
   }

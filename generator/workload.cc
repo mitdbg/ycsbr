@@ -35,15 +35,18 @@ namespace gen {
 using Producer = PhasedWorkload::Producer;
 
 std::unique_ptr<PhasedWorkload> PhasedWorkload::LoadFrom(
-    const std::filesystem::path& config_file, const uint32_t prng_seed) {
-  return std::make_unique<PhasedWorkload>(WorkloadConfig::LoadFrom(config_file),
-                                          prng_seed);
+    const std::filesystem::path& config_file, const uint32_t prng_seed,
+    const size_t set_record_size_bytes) {
+  return std::make_unique<PhasedWorkload>(
+      WorkloadConfig::LoadFrom(config_file, set_record_size_bytes), prng_seed);
 }
 
 std::unique_ptr<PhasedWorkload> PhasedWorkload::LoadFromString(
-    const std::string& raw_config, const uint32_t prng_seed) {
+    const std::string& raw_config, const uint32_t prng_seed,
+    const size_t set_record_size_bytes) {
   return std::make_unique<PhasedWorkload>(
-      WorkloadConfig::LoadFromString(raw_config), prng_seed);
+      WorkloadConfig::LoadFromString(raw_config, set_record_size_bytes),
+      prng_seed);
 }
 
 PhasedWorkload::PhasedWorkload(std::shared_ptr<WorkloadConfig> config,
