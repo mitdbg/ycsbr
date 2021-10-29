@@ -67,14 +67,14 @@ bool ValidateConfig(YAML::Node& raw_config,
     std::cerr << "ERROR: Workload config needs to be a YAML map." << std::endl;
     return false;
   }
-  if (set_record_size_bytes != 0) {  // This happens in here because we first
-                                    // need to validate that we have a YAML map.
-    raw_config[kRecordSizeBytesKey] = std::to_string(set_record_size_bytes);
-  }
   if (!raw_config[kRecordSizeBytesKey]) {
-    std::cerr << "ERROR: Missing workload config '" << kRecordSizeBytesKey
-              << "' value." << std::endl;
-    return false;
+    if (set_record_size_bytes != 0) { 
+      raw_config[kRecordSizeBytesKey] = std::to_string(set_record_size_bytes);
+    } else {
+      std::cerr << "ERROR: Missing workload config '" << kRecordSizeBytesKey
+                << "' value." << std::endl;
+      return false;
+    }
   }
   if (!raw_config[kLoadConfigKey]) {
     std::cerr << "ERROR: Missing workload config '" << kLoadConfigKey
