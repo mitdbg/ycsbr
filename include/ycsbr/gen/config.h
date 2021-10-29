@@ -13,10 +13,13 @@ namespace gen {
 
 class WorkloadConfig {
  public:
+  // Setting `set_record_size_bytes` to a positive value will override the
+  // record size specified in the workload file, if any.
   static std::shared_ptr<WorkloadConfig> LoadFrom(
-      const std::filesystem::path& config_file);
+      const std::filesystem::path& config_file,
+      const size_t set_record_size_bytes = 0);
   static std::shared_ptr<WorkloadConfig> LoadFromString(
-      const std::string& raw_config);
+      const std::string& raw_config, const size_t set_record_size_bytes = 0);
 
   virtual bool UsingCustomDataset() const = 0;
   virtual size_t GetNumLoadRecords() const = 0;
