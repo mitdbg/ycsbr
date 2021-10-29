@@ -264,10 +264,10 @@ size_t WorkloadConfigImpl::GetRecordSizeBytes() const {
   std::unique_lock<std::mutex> lock(mutex_);
   size_t record_size_bytes;
 
-  if (raw_config[kRecordSizeBytesKey]) {
+  if (raw_config_[kRecordSizeBytesKey]) {
     record_size_bytes = raw_config_[kRecordSizeBytesKey].as<size_t>();
-  } else if (set_record_size_bytes != 0) {
-    record_size_bytes = std::to_string(set_record_size_bytes);
+  } else if (set_record_size_bytes_ != 0) {
+    record_size_bytes = set_record_size_bytes_;
   } else {
     throw std::invalid_argument("No record size was specified.");
   }
