@@ -61,8 +61,7 @@ const std::string kSaltKey = "salt";
 
 // Only does a quick high-level structural validation. The semantic validation
 // is done when phases are retrieved.
-bool ValidateConfig(YAML::Node& raw_config,
-                    const size_t set_record_size_bytes = 0) {
+bool ValidateConfig(const YAML::Node& raw_config) {
   if (!raw_config.IsMap()) {
     std::cerr << "ERROR: Workload config needs to be a YAML map." << std::endl;
     return false;
@@ -216,10 +215,11 @@ std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFrom(
     const size_t set_record_size_bytes) {
   try {
     YAML::Node node = YAML::LoadFile(config_file);
-    if (!ValidateConfig(node, set_record_size_bytes)) {
+    if (!ValidateConfig(node)) {
       throw std::invalid_argument("Invalid workload configuration file.");
     }
-    return std::make_shared<WorkloadConfigImpl>(std::move(node));
+    return std::make_shared<WorkloadConfigImpl>(std::move(node),
+                                                set_record_size_bytes);
   } catch (const YAML::BadFile&) {
     throw std::invalid_argument(
         "Could not parse the workload configuration file.");
@@ -229,10 +229,11 @@ std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFrom(
 std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFromString(
     const std::string& raw_config, const size_t set_record_size_bytes) {
   YAML::Node node = YAML::Load(raw_config);
-  if (!ValidateConfig(node, set_record_size_bytes)) {
+  if (!ValidateConfig(node)) {
     throw std::invalid_argument("Invalid workload configuration string.");
   }
-  return std::make_shared<WorkloadConfigImpl>(std::move(node));
+  return std::make_shared<WorkloadConfigImpl>(std::move(node),
+                                              set_record_size_bytes);
 }
 
 WorkloadConfigImpl::WorkloadConfigImpl(YAML::Node raw_config,
