@@ -11,7 +11,8 @@ namespace gen {
 
 class WorkloadConfigImpl : public WorkloadConfig {
  public:
-  WorkloadConfigImpl(YAML::Node raw_config);
+  WorkloadConfigImpl(YAML::Node raw_config,
+                     const size_t set_record_size_bytes = 0);
 
   bool UsingCustomDataset() const override;
   size_t GetNumLoadRecords() const override;
@@ -27,6 +28,11 @@ class WorkloadConfigImpl : public WorkloadConfig {
  private:
   bool UsingCustomDatasetImpl() const;
   size_t GetNumLoadRecordsImpl() const;
+
+  // If the workload file did not specify the record size already, then it is
+  // set to `set_record_size_bytes_` if it non-zero. Otherwise, an exception is
+  // thrown.
+  const size_t set_record_size_bytes_;
 
   // The config can be accessed concurrently. Even though all our methods are
   // `const`, it turns out that some `const` methods on `YAML::Node` are not

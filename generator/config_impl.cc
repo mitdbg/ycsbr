@@ -67,15 +67,6 @@ bool ValidateConfig(YAML::Node& raw_config,
     std::cerr << "ERROR: Workload config needs to be a YAML map." << std::endl;
     return false;
   }
-  if (!raw_config[kRecordSizeBytesKey]) {
-    if (set_record_size_bytes != 0) { 
-      raw_config[kRecordSizeBytesKey] = std::to_string(set_record_size_bytes);
-    } else {
-      std::cerr << "ERROR: Missing workload config '" << kRecordSizeBytesKey
-                << "' value." << std::endl;
-      return false;
-    }
-  }
   if (!raw_config[kLoadConfigKey]) {
     std::cerr << "ERROR: Missing workload config '" << kLoadConfigKey
               << "' section." << std::endl;
@@ -244,8 +235,10 @@ std::shared_ptr<WorkloadConfig> WorkloadConfig::LoadFromString(
   return std::make_shared<WorkloadConfigImpl>(std::move(node));
 }
 
-WorkloadConfigImpl::WorkloadConfigImpl(YAML::Node raw_config)
-    : raw_config_(std::move(raw_config)) {}
+WorkloadConfigImpl::WorkloadConfigImpl(YAML::Node raw_config,
+                                       const size_t set_record_size_bytes)
+    : raw_config_(std::move(raw_config)),
+      set_record_size_bytes_(set_record_size_bytes) {}
 
 bool WorkloadConfigImpl::UsingCustomDataset() const {
   std::unique_lock<std::mutex> lock(mutex_);
@@ -269,8 +262,15 @@ size_t WorkloadConfigImpl::GetNumLoadRecordsImpl() const {
 
 size_t WorkloadConfigImpl::GetRecordSizeBytes() const {
   std::unique_lock<std::mutex> lock(mutex_);
-  const size_t record_size_bytes =
-      raw_config_[kRecordSizeBytesKey].as<size_t>();
+  size_t record_size_bytes;
+
+  if (raw_config[kRecordSizeBytesKey]) {
+    record_size_bytes = raw_config_[kRecordSizeBytesKey].as<size_t>();
+  } else if (set_record_size_bytes != 0) {
+    record_size_bytes = std::to_string(set_record_size_bytes);
+  } else {
+    throw std::invalid_argument("No record size was specified.");
+  }
   if (record_size_bytes < 9) {
     throw std::invalid_argument("Record sizes must be at least 9 bytes.");
   }
