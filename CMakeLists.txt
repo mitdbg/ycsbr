@@ -6,6 +6,11 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 option(YR_BUILD_GENERATOR "Set to build the YCSBR workload generator." ON)
 option(YR_BUILD_EXTRACTOR "Set to build the YCSBR workload extractors." OFF)
 option(YR_BUILD_TESTS "Set to build the YCSBR tests." OFF)
+option(YR_BUILD_PYBIND "Set to build the YCSBR workload generator Python bindings." OFF)
+
+if(YR_BUILD_PYBIND AND NOT YR_BUILD_GENERATOR)
+  message(FATAL_ERROR "YR_BUILD_GENERATOR must also be set to ON when building the Python bindings.")
+endif()
 
 # The YCSBR library is a header-only library.
 add_library(ycsbr INTERFACE)
@@ -60,6 +65,15 @@ endif()
 if(YR_BUILD_EXTRACTOR)
   add_executable(ycsbextractor extractors/ycsb.cc)
   target_link_libraries(ycsbextractor PRIVATE ycsbr)
+endif()
+
+if(YR_BUILD_PYBIND)
+  add_subdirectory(pybind)
+
+  # The Python binding module is a shared library. Its dependencies must be
+  # position independent.
+  set_property(TARGET ycsbr-gen PROPERTY POSITION_INDEPENDENT_CODE ON)
+  set_property(TARGET yaml-cpp PROPERTY POSITION_INDEPENDENT_CODE ON)
 endif()
 
 if(YR_BUILD_TESTS AND NOT YR_BUILD_EXTRACTOR)
