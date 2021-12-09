@@ -66,6 +66,10 @@ PhasedWorkload::PhasedWorkload(std::shared_ptr<WorkloadConfig> config,
   ApplyPhaseAndProducerIDs(load_keys_->begin(), load_keys_->end(),
                            /*phase_id=*/0,
                            /*producer_id=*/0);
+
+  // Keep the initial load keys sorted to allow for efficiently generating
+  // clustered hot sets.
+  std::sort(load_keys_->begin(), load_keys_->end());
 }
 
 void PhasedWorkload::SetCustomLoadDataset(std::vector<Request::Key> dataset) {
@@ -76,7 +80,10 @@ void PhasedWorkload::SetCustomLoadDataset(std::vector<Request::Key> dataset) {
   load_keys_ = std::make_shared<std::vector<Request::Key>>(std::move(dataset));
   ApplyPhaseAndProducerIDs(load_keys_->begin(), load_keys_->end(),
                            /*phase_id=*/0, /*producer_id=*/0);
-  std::shuffle(load_keys_->begin(), load_keys_->end(), prng_);
+
+  // Keep the initial load keys sorted to allow for efficiently generating
+  // clustered hot sets.
+  std::sort(load_keys_->begin(), load_keys_->end());
 }
 
 size_t PhasedWorkload::GetRecordSizeBytes() const {

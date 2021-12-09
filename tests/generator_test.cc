@@ -541,4 +541,48 @@ TEST(GeneratorTest, BufferedWorkload) {
   ASSERT_EQ(session.db().update_calls, 0);
 }
 
+TEST(GeneratorTest, ClusteredZipfian) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  distribution:\n"
+      "    type: custom\n"
+      "run:\n"
+      "- num_requests: 1000\n"
+      "  read:\n"
+      "    proportion_pct: 100\n"
+      "    distribution:\n"
+      "      type: zipfian_clustered\n"
+      "      theta: 0.99\n";
+  std::vector<Request::Key> dataset = {15, 12, 16, 2000, 10};
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+  workload->SetCustomLoadDataset(dataset);
+
+  for (auto& key : dataset) {
+    // The generator reserves the lower 16 bits for phase/thread IDs.
+    key <<= 16;
+  }
+
+  Session<KeyFrequencyInterface> session(1);
+  session.Initialize();
+  session.ReplayBulkLoadTrace(workload->GetLoadTrace());
+  const auto result = session.RunWorkload(*workload);
+  session.Terminate();
+
+  std::vector<Request::Key> dataset_copy(dataset);
+
+  // Sort dataset by access frequency in descending order.
+  std::sort(dataset.begin(), dataset.end(),
+            [&session](const Request::Key& a, const Request::Key& b) {
+              return session.db().key_freqs[a] > session.db().key_freqs[b];
+            });
+  // Sort the dataset_copy in ascending order by value.
+  std::sort(dataset_copy.begin(), dataset_copy.end());
+
+  // The smallest key should be the most frequently accessed, followed by the
+  // second smallest, and so on. So the two vectors should be equal.
+  ASSERT_EQ(dataset, dataset_copy);
+}
+
 }  // namespace

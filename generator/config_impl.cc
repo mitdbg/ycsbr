@@ -48,6 +48,8 @@ const std::string kHotspotDist = "hotspot";    // Insert ops only
 const std::string kLinspaceDist = "linspace";  // Insert ops only
 const std::string kCustomDist = "custom";      // Insert ops only
 const std::string kLatestDist = "latest";      // Access ops only
+// This does not scatter the zipfian-generated requests.
+const std::string kZipfianClusteredDist = "zipfian_clustered";  // Access ops only
 
 const std::string kRangeMinKey = "range_min";
 const std::string kRangeMaxKey = "range_max";
@@ -111,7 +113,7 @@ std::unique_ptr<gen::Chooser> CreateChooser(
     lock.lock();
     return chooser;
 
-  } else if (dist_type == kZipfianDist) {
+  } else if (dist_type == kZipfianDist || dist_type == kZipfianClusteredDist) {
     const double theta = distribution_config[kZipfianThetaKey].as<double>();
     if (theta <= 0.0 || theta >= 1.0) {
       throw std::invalid_argument("Zipfian theta must be in the range (0, 1).");
@@ -123,10 +125,18 @@ std::unique_ptr<gen::Chooser> CreateChooser(
       salt = distribution_config[kSaltKey].as<uint64_t>();
     }
     lock.unlock();
-    auto chooser =
-        std::make_unique<gen::ScatteredZipfianChooser>(item_count, theta, salt);
-    lock.lock();
-    return chooser;
+    if (dist_type == kZipfianDist) {
+      auto chooser =
+          std::make_unique<gen::ScatteredZipfianChooser>(item_count, theta, salt);
+      lock.lock();
+      return chooser;
+    } else {
+      assert(dist_type == kZipfianClusteredDist);
+      auto chooser =
+          std::make_unique<gen::ZipfianChooser>(item_count, theta);
+      lock.lock();
+      return chooser;
+    }
 
   } else if (dist_type == kLatestDist) {
     const double theta = distribution_config[kZipfianThetaKey].as<double>();
