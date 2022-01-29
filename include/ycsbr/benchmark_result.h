@@ -18,7 +18,8 @@ class BenchmarkResult {
   template <typename Units>
   Units RunTime() const;
 
-  double ThroughputMopsPerSecond() const;
+  double ThroughputThousandRequestsPerSecond() const;
+  double ThroughputThousandRecordsPerSecond() const;
   double ThroughputReadMiBPerSecond() const;
   double ThroughputWriteMiBPerSecond() const;
 

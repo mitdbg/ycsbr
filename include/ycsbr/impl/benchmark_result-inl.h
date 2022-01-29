@@ -24,12 +24,23 @@ inline Units BenchmarkResult::RunTime() const {
   return std::chrono::duration_cast<Units>(run_time_);
 }
 
-inline double BenchmarkResult::ThroughputMopsPerSecond() const {
-  const uint64_t total_ops = reads_.NumOperations() + writes_.NumOperations() +
-                             scans_.NumOperations() + failed_reads_ +
-                             failed_writes_ + failed_scans_;
-  return total_ops /
-         (double)std::chrono::duration_cast<std::chrono::microseconds>(
+inline double BenchmarkResult::ThroughputThousandRequestsPerSecond() const {
+  const uint64_t total_reqs = reads_.NumRequests() + writes_.NumRequests() +
+                              scans_.NumRequests() + failed_reads_ +
+                              failed_writes_ + failed_scans_;
+  // (requests / millisecond) is equivalent to (krequests / second)
+  return total_reqs /
+         std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(
+             run_time_)
+             .count();
+}
+
+inline double BenchmarkResult::ThroughputThousandRecordsPerSecond() const {
+  const uint64_t total_records =
+      reads_.NumRecords() + writes_.NumRecords() + scans_.NumRecords();
+  // (records / millisecond) is equivalent to (krecords / second)
+  return total_records /
+         std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(
              run_time_)
              .count();
 }
@@ -48,14 +59,17 @@ inline double BenchmarkResult::ThroughputWriteMiBPerSecond() const {
 inline std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
   out << "Total run time (us):       "
       << res.RunTime<std::chrono::microseconds>().count() << std::endl;
-  out << "Total reads:               " << res.Reads().NumOperations()
+  out << "Total read requests:       " << res.Reads().NumRequests()
       << std::endl;
-  out << "Total writes:              " << res.Writes().NumOperations()
+  out << "Total write requests:      " << res.Writes().NumRequests()
       << std::endl;
-  out << "Total scanned keys:        " << res.Scans().NumOperations()
+  out << "Total scan requests:       " << res.Scans().NumRequests()
       << std::endl;
-  out << "Throughput (Mops/s):       " << res.ThroughputMopsPerSecond()
-      << std::endl;
+  out << "Total scanned records:     " << res.Scans().NumRecords() << std::endl;
+  out << "Throughput (krequests/s):  "
+      << res.ThroughputThousandRequestsPerSecond() << std::endl;
+  out << "Throughput (krecords/s):   "
+      << res.ThroughputThousandRecordsPerSecond() << std::endl;
   out << "Read Throughput (MiB/s):   " << res.ThroughputReadMiBPerSecond()
       << std::endl;
   out << "Write Throughput (MiB/s):  " << res.ThroughputWriteMiBPerSecond()
@@ -65,8 +79,9 @@ inline std::ostream& operator<<(std::ostream& out, const BenchmarkResult& res) {
 }
 
 inline void BenchmarkResult::PrintCSVHeader(std::ostream& out) {
-  out << "num_reads,num_writes,num_scanned_keys,reads_ns_p99,reads_ns_p50,"
-         "writes_ns_p99,writes_ns_p50,mops_per_s,read_mib_per_s,write_mib_per_s"
+  out << "num_reads,num_writes,num_scans,num_scanned_keys,reads_ns_p99,"
+         "reads_ns_p50,writes_ns_p99,writes_ns_p50,krequests_per_s,"
+         "krecords_per_s,read_mib_per_s,write_mib_per_s"
       << std::endl;
 }
 
@@ -76,14 +91,16 @@ inline void BenchmarkResult::PrintAsCSV(std::ostream& out,
   if (print_header) {
     PrintCSVHeader(out);
   }
-  out << Reads().NumOperations() << ",";
-  out << Writes().NumOperations() << ",";
-  out << Scans().NumOperations() << ",";
+  out << Reads().NumRequests() << ",";
+  out << Writes().NumRequests() << ",";
+  out << Scans().NumRequests() << ",";
+  out << Scans().NumRecords() << ",";
   out << Reads().LatencyPercentile<nanoseconds>(0.99).count() << ",";
   out << Reads().LatencyPercentile<nanoseconds>(0.5).count() << ",";
   out << Writes().LatencyPercentile<nanoseconds>(0.99).count() << ",";
   out << Writes().LatencyPercentile<nanoseconds>(0.5).count() << ",";
-  out << ThroughputMopsPerSecond() << ",";
+  out << ThroughputThousandRequestsPerSecond() << ",";
+  out << ThroughputThousandRecordsPerSecond() << ",";
   out << ThroughputReadMiBPerSecond() << ",";
   out << ThroughputWriteMiBPerSecond() << std::endl;
 }

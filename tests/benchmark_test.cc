@@ -22,7 +22,7 @@ TEST_F(TraceLoadA, BenchBulkLoad) {
   auto res = session.ReplayBulkLoadTrace(load);
   session.Terminate();
 
-  ASSERT_EQ(res.Writes().NumOperations(), load.size());
+  ASSERT_EQ(res.Writes().NumRecords(), load.size());
   ASSERT_EQ(session.db().initialize_worker_calls, 1);
   ASSERT_EQ(session.db().shutdown_worker_calls, 1);
   ASSERT_EQ(session.db().initialize_calls, 1);
@@ -35,7 +35,7 @@ TEST_F(TraceLoadA, BenchBulkLoad) {
 
   // Make sure the simplified interface works.
   auto res2 = ReplayTrace<TestDatabaseInterface>(load);
-  ASSERT_EQ(res2.Writes().NumOperations(), load.size());
+  ASSERT_EQ(res2.Writes().NumRecords(), load.size());
 }
 
 TEST_F(TraceLoadA, BenchLoadRunA) {
@@ -62,7 +62,7 @@ TEST_F(TraceLoadA, BenchLoadRunA) {
 
   // Make sure the simplified interface works.
   auto res = ReplayTrace<TestDatabaseInterface>(trace, &load);
-  ASSERT_EQ(res.Writes().NumOperations(), trace_size);
+  ASSERT_EQ(res.Writes().NumRequests(), trace_size);
 }
 
 TEST_F(TraceReplayA, BenchRunA) {
@@ -70,8 +70,7 @@ TEST_F(TraceReplayA, BenchRunA) {
   const Trace trace = Trace::LoadFromFile(trace_file, options);
 
   auto res = ReplayTrace<TestDatabaseInterface>(trace);
-  ASSERT_EQ(res.Writes().NumOperations() + res.Reads().NumOperations(),
-            trace_size);
+  ASSERT_EQ(res.Writes().NumRequests() + res.Reads().NumRequests(), trace_size);
 }
 
 TEST_F(TraceReplayE, BenchRunE) {
@@ -81,7 +80,7 @@ TEST_F(TraceReplayE, BenchRunE) {
 
   Session<TestDatabaseInterface> session(1);
   session.Initialize();
-  session.ReplayTrace(trace);
+  const auto res = session.ReplayTrace(trace);
   session.Terminate();
 
   ASSERT_EQ(session.db().initialize_worker_calls, 1);
@@ -93,6 +92,7 @@ TEST_F(TraceReplayE, BenchRunE) {
   ASSERT_EQ(session.db().update_calls, 0);
   ASSERT_EQ(session.db().read_calls, 0);
   ASSERT_TRUE(session.db().scan_calls > 0);
+  ASSERT_EQ(session.db().scan_calls, res.Scans().NumRequests());
 }
 
 TEST_F(TraceReplayA, MultithreadedRun) {
@@ -114,14 +114,14 @@ TEST_F(TraceReplayA, MultithreadedRun) {
   ASSERT_TRUE(session.db().read_calls > 0);
   ASSERT_EQ(session.db().scan_calls, 0);
   ASSERT_EQ(session.db().update_calls + session.db().read_calls, trace_size);
-  ASSERT_EQ(res.Reads().NumOperations(), session.db().read_calls);
-  ASSERT_EQ(res.Writes().NumOperations(), session.db().update_calls);
+  ASSERT_EQ(res.Reads().NumRequests(), session.db().read_calls);
+  ASSERT_EQ(res.Writes().NumRequests(), session.db().update_calls);
 
   BenchmarkOptions<TestDatabaseInterface> boptions;
   boptions.num_threads = 5;
   auto res2 = ReplayTrace(trace, nullptr, boptions);
-  ASSERT_EQ(res.Reads().NumOperations(), res2.Reads().NumOperations());
-  ASSERT_EQ(res.Writes().NumOperations(), res2.Writes().NumOperations());
+  ASSERT_EQ(res.Reads().NumRequests(), res2.Reads().NumRequests());
+  ASSERT_EQ(res.Writes().NumRequests(), res2.Writes().NumRequests());
 }
 
 TEST_F(TraceReplayA, NoThreads) {
@@ -151,7 +151,9 @@ TEST_F(TraceReplayA, PreRunHook) {
 
   bool called = false;
   BenchmarkOptions<TestDatabaseInterface> boptions;
-  boptions.pre_run_hook = [&called](TestDatabaseInterface& db) { called = true; };
+  boptions.pre_run_hook = [&called](TestDatabaseInterface& db) {
+    called = true;
+  };
   ReplayTrace(trace, nullptr, boptions);
   ASSERT_TRUE(called);
 }

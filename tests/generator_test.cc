@@ -382,7 +382,7 @@ TEST(GeneratorTest, NegativeLookups) {
   const auto result = session.RunWorkload(*workload);
   session.Terminate();
 
-  const size_t num_succeeded_reads = result.Reads().NumOperations();
+  const size_t num_succeeded_reads = result.Reads().NumRequests();
   const size_t num_failed_reads = result.NumFailedReads();
   ASSERT_EQ(num_succeeded_reads + num_failed_reads, 100);
   // Expect 50% of the reads to fail with a +/- 5% margin of error

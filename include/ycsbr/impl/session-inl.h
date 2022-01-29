@@ -82,7 +82,7 @@ inline BenchmarkResult Session<DatabaseInterface>::ReplayBulkLoadTrace(
 
   const auto run_time = end - start;
   Meter load_meter;
-  load_meter.RecordMultiple(run_time, load.DatasetSizeBytes(), load.size());
+  load_meter.RecordMultipleRecords(run_time, load.DatasetSizeBytes(), load.size());
   return BenchmarkResult(run_time, 0, FrozenMeter(),
                          std::move(load_meter).Freeze(), FrozenMeter(), 0, 0,
                          0);

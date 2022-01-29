@@ -116,21 +116,31 @@ PYBIND11_MODULE(ycsbr_py, m) {
           [](const ycsbr::BenchmarkResult& result) {
             return result.RunTime<std::chrono::nanoseconds>().count();
           })
-      .def_property_readonly("throughput_mops_per_s",
-                             [](const ycsbr::BenchmarkResult& result) {
-                               return result.ThroughputMopsPerSecond();
-                             })
+      .def_property_readonly(
+          "throughput_krequests_per_s",
+          [](const ycsbr::BenchmarkResult& result) {
+            return result.ThroughputThousandRequestsPerSecond();
+          })
+      .def_property_readonly(
+          "throughput_krecords_per_s",
+          [](const ycsbr::BenchmarkResult& result) {
+            return result.ThroughputThousandRecordsPerSecond();
+          })
       .def_property_readonly("num_reads",
                              [](const ycsbr::BenchmarkResult& result) {
-                               return result.Reads().NumOperations();
+                               return result.Reads().NumRequests();
                              })
       .def_property_readonly("num_writes",
                              [](const ycsbr::BenchmarkResult& result) {
-                               return result.Writes().NumOperations();
+                               return result.Writes().NumRequests();
+                             })
+      .def_property_readonly("num_scans",
+                             [](const ycsbr::BenchmarkResult& result) {
+                               return result.Scans().NumRequests();
                              })
       .def_property_readonly("num_keys_scanned",
                              [](const ycsbr::BenchmarkResult& result) {
-                               return result.Scans().NumOperations();
+                               return result.Scans().NumRecords();
                              })
       .def_property_readonly("num_failed_reads",
                              [](const ycsbr::BenchmarkResult& result) {

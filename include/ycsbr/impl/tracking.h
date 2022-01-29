@@ -64,7 +64,7 @@ class MetricsTracker {
   void RecordScan(std::optional<std::chrono::nanoseconds> run_time,
                   size_t scanned_bytes, size_t scanned_amount, bool succeeded) {
     if (succeeded) {
-      scans_.RecordMultiple(run_time, scanned_bytes, scanned_amount);
+      scans_.RecordMultipleRecords(run_time, scanned_bytes, scanned_amount);
     } else {
       ++failed_scans_;
     }
@@ -74,7 +74,7 @@ class MetricsTracker {
 
   ThroughputSample GetSample() {
     const auto now = std::chrono::steady_clock::now();
-    const size_t count = TotalOpCount();
+    const size_t count = TotalRequestCount();
     const ThroughputSample result(count - last_count_, now - last_sample_time_);
     last_count_ = count;
     last_sample_time_ = now;
@@ -82,7 +82,7 @@ class MetricsTracker {
   }
 
   void ResetSample() {
-    last_count_ = TotalOpCount();
+    last_count_ = TotalRequestCount();
     last_sample_time_ = std::chrono::steady_clock::now();
   }
 
@@ -120,10 +120,10 @@ class MetricsTracker {
   }
 
  private:
-  size_t TotalOpCount() const {
-    // NOTE: Each scanned key is counted as an operation.
-    return reads_.Count() + writes_.Count() + scans_.Count() + failed_reads_ +
-           failed_writes_ + failed_scans_;
+  size_t TotalRequestCount() const {
+    return reads_.RequestCount() + writes_.RequestCount() +
+           scans_.RequestCount() + failed_reads_ + failed_writes_ +
+           failed_scans_;
   }
 
   Meter reads_, writes_, scans_;
