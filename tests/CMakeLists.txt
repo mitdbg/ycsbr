@@ -8,7 +8,7 @@ FetchContent_Declare(
 FetchContent_Declare(
   benchmark
   GIT_REPOSITORY https://github.com/google/benchmark
-  GIT_TAG        v1.5.2
+  GIT_TAG        v1.6.1
 )
 set(BENCHMARK_ENABLE_TESTING OFF)
 set(BENCHMARK_ENABLE_INSTALL OFF)
