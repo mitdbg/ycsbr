@@ -48,9 +48,13 @@ class PhasedWorkload {
   // Get a load trace that can be used to load a database with the records used
   // in this workload.
   //
+  // If `sort_requests` is set to true, the records in the trace will be sorted
+  // in ascending order by key. If `sort_requests` is false, there are no
+  // guarantees on the order of the records in the trace.
+  //
   // NOTE: If a custom dataset is used, `SetCustomLoadDataset()` must be called
   // first before this method.
-  BulkLoadTrace GetLoadTrace() const;
+  BulkLoadTrace GetLoadTrace(bool sort_requests = false) const;
 
   class Producer;
   // Used by the workload runner to prepare the workload for execution. You

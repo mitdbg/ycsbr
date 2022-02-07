@@ -90,9 +90,10 @@ size_t PhasedWorkload::GetRecordSizeBytes() const {
   return config_->GetRecordSizeBytes();
 }
 
-BulkLoadTrace PhasedWorkload::GetLoadTrace() const {
+BulkLoadTrace PhasedWorkload::GetLoadTrace(const bool sort_requests) const {
   Trace::Options options;
   options.value_size = config_->GetRecordSizeBytes() - sizeof(Request::Key);
+  options.sort_requests = sort_requests;
   return BulkLoadTrace::LoadFromKeys(*load_keys_, options);
 }
 
