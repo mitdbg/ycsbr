@@ -160,7 +160,10 @@ void Producer::Prepare() {
     const auto custom_insert_info = config_->GetCustomInsertsForPhase(phase);
     if (custom_insert_info.has_value()) {
       // This phase uses a custom insert list.
-      assert(custom_inserts_ != nullptr);
+      if (custom_inserts_ == nullptr) {
+        throw std::runtime_error("Did not find inserts for '" +
+                                 custom_insert_info->name + "'.");
+      }
       const auto it = custom_inserts_->find(custom_insert_info->name);
       if (it == custom_inserts_->end()) {
         throw std::runtime_error("Did not find inserts for '" +
