@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <memory>
 #include <random>
+#include <unordered_map>
 #include <vector>
 
 #include "ycsbr/gen/config.h"
@@ -42,6 +43,12 @@ class PhasedWorkload {
   // "load" section must specify that the distribution is "custom".
   void SetCustomLoadDataset(std::vector<Request::Key> dataset);
 
+  // Used to specify a custom list of keys to insert. The keys will be inserted
+  // in the given order. The specified `name` should match a name used in the
+  // workload configuration file.
+  void AddCustomInsertList(const std::string& name,
+                           std::vector<Request::Key> to_insert);
+
   // Retrieve the size of the records in the workload, in bytes.
   size_t GetRecordSizeBytes() const;
 
@@ -69,6 +76,8 @@ class PhasedWorkload {
   uint32_t prng_seed_;
   std::shared_ptr<WorkloadConfig> config_;
   std::shared_ptr<std::vector<Request::Key>> load_keys_;
+  std::shared_ptr<std::unordered_map<std::string, std::vector<Request::Key>>>
+      custom_inserts_;
 };
 
 // Used by the workload runner to actually execute the workload. This class
@@ -86,6 +95,9 @@ class PhasedWorkload::Producer {
   friend class PhasedWorkload;
   Producer(std::shared_ptr<const WorkloadConfig> config,
            std::shared_ptr<const std::vector<Request::Key>> load_keys,
+           std::shared_ptr<
+               const std::unordered_map<std::string, std::vector<Request::Key>>>
+               custom_inserts,
            ProducerID id, size_t num_producers, uint32_t prng_seed);
 
   Request::Key ChooseKey(const std::unique_ptr<Chooser>& chooser);
@@ -101,6 +113,11 @@ class PhasedWorkload::Producer {
   // The keys that were loaded.
   std::shared_ptr<const std::vector<Request::Key>> load_keys_;
   size_t num_load_keys_;
+
+  // Custom keys to insert.
+  std::shared_ptr<
+      const std::unordered_map<std::string, std::vector<Request::Key>>>
+      custom_inserts_;
 
   // Stores all the keys this producer will eventually insert.
   std::vector<Request::Key> insert_keys_;

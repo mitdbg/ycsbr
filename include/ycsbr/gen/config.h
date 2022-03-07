@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "ycsbr/gen/keygen.h"
@@ -30,6 +31,13 @@ class WorkloadConfig {
   virtual Phase GetPhase(PhaseID phase_id, ProducerID producer_id,
                          size_t num_producers) const = 0;
   virtual std::unique_ptr<Generator> GetGeneratorForPhase(
+      const Phase& phase) const = 0;
+
+  struct CustomInserts {
+    std::string name;
+    uint64_t offset;
+  };
+  virtual std::optional<CustomInserts> GetCustomInsertsForPhase(
       const Phase& phase) const = 0;
 
   virtual ~WorkloadConfig() = default;

@@ -86,6 +86,19 @@ void PhasedWorkload::SetCustomLoadDataset(std::vector<Request::Key> dataset) {
   std::sort(load_keys_->begin(), load_keys_->end());
 }
 
+void PhasedWorkload::AddCustomInsertList(const std::string& name,
+                                         std::vector<Request::Key> to_insert) {
+  assert(to_insert.size() > 0);
+  if (*std::max_element(to_insert.begin(), to_insert.end()) > kMaxKey) {
+    throw std::invalid_argument("The maximum supported key is 2^48 - 1.");
+  }
+  if (custom_inserts_ == nullptr) {
+    custom_inserts_ = std::make_shared<
+        std::unordered_map<std::string, std::vector<Request::Key>>>();
+  }
+  custom_inserts_->emplace(name, std::move(to_insert));
+}
+
 size_t PhasedWorkload::GetRecordSizeBytes() const {
   return config_->GetRecordSizeBytes();
 }
@@ -106,15 +119,19 @@ std::vector<Producer> PhasedWorkload::GetProducers(
         // Each Producer's workload should be deterministic, but we want each
         // Producer to produce different requests from each other. So we include
         // the producer ID in its seed.
-        Producer(config_, load_keys_, id, num_producers, prng_seed_ ^ id));
+        Producer(config_, load_keys_, custom_inserts_, id, num_producers,
+                 prng_seed_ ^ id));
   }
   return producers;
 }
 
-Producer::Producer(std::shared_ptr<const WorkloadConfig> config,
-                   std::shared_ptr<const std::vector<Request::Key>> load_keys,
-                   const ProducerID id, const size_t num_producers,
-                   const uint32_t prng_seed)
+Producer::Producer(
+    std::shared_ptr<const WorkloadConfig> config,
+    std::shared_ptr<const std::vector<Request::Key>> load_keys,
+    std::shared_ptr<
+        const std::unordered_map<std::string, std::vector<Request::Key>>>
+        custom_inserts,
+    const ProducerID id, const size_t num_producers, const uint32_t prng_seed)
     : id_(id),
       num_producers_(num_producers),
       config_(std::move(config)),
@@ -122,6 +139,7 @@ Producer::Producer(std::shared_ptr<const WorkloadConfig> config,
       current_phase_(0),
       load_keys_(std::move(load_keys)),
       num_load_keys_(load_keys_->size()),
+      custom_inserts_(std::move(custom_inserts)),
       next_insert_key_index_(0),
       valuegen_(config_->GetRecordSizeBytes() - sizeof(Request::Key),
                 kNumUniqueValues, prng_),
@@ -139,10 +157,34 @@ void Producer::Prepare() {
   size_t insert_index = 0;
   for (auto& phase : phases_) {
     if (phase.num_inserts == 0) continue;
-    auto generator = config_->GetGeneratorForPhase(phase);
-    assert(generator != nullptr);
-    insert_keys_.resize(insert_keys_.size() + phase.num_inserts);
-    generator->Generate(prng_, &insert_keys_, insert_index);
+    const auto custom_insert_info = config_->GetCustomInsertsForPhase(phase);
+    if (custom_insert_info.has_value()) {
+      // This phase uses a custom insert list.
+      assert(custom_inserts_ != nullptr);
+      const auto it = custom_inserts_->find(custom_insert_info->name);
+      if (it == custom_inserts_->end()) {
+        throw std::runtime_error("Did not find inserts for '" +
+                                 custom_insert_info->name + "'.");
+      }
+      if (it->second.size() < custom_insert_info->offset ||
+          it->second.size() - custom_insert_info->offset < phase.num_inserts) {
+        throw std::runtime_error("Not enough keys in '" +
+                                 custom_insert_info->name +
+                                 "' to make all requested inserts.");
+      }
+      insert_keys_.resize(insert_keys_.size() + phase.num_inserts);
+      std::copy(
+          it->second.begin() + custom_insert_info->offset,
+          it->second.begin() + custom_insert_info->offset + phase.num_inserts,
+          insert_keys_.begin() + insert_index);
+
+    } else {
+      // This phase's inserts are randomly generated.
+      auto generator = config_->GetGeneratorForPhase(phase);
+      assert(generator != nullptr);
+      insert_keys_.resize(insert_keys_.size() + phase.num_inserts);
+      generator->Generate(prng_, &insert_keys_, insert_index);
+    }
     ApplyPhaseAndProducerIDs(
         insert_keys_.begin() + insert_index,
         insert_keys_.begin() + insert_index + phase.num_inserts,

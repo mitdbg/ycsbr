@@ -24,6 +24,8 @@ class WorkloadConfigImpl : public WorkloadConfig {
                  size_t num_producers) const override;
   std::unique_ptr<Generator> GetGeneratorForPhase(
       const Phase& phase) const override;
+  std::optional<WorkloadConfig::CustomInserts> GetCustomInsertsForPhase(
+      const Phase& phase) const override;
 
  private:
   bool UsingCustomDatasetImpl() const;

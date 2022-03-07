@@ -49,7 +49,8 @@ const std::string kLinspaceDist = "linspace";  // Insert ops only
 const std::string kCustomDist = "custom";      // Insert ops only
 const std::string kLatestDist = "latest";      // Access ops only
 // This does not scatter the zipfian-generated requests.
-const std::string kZipfianClusteredDist = "zipfian_clustered";  // Access ops only
+const std::string kZipfianClusteredDist =
+    "zipfian_clustered";  // Access ops only
 
 const std::string kRangeMinKey = "range_min";
 const std::string kRangeMaxKey = "range_max";
@@ -60,6 +61,8 @@ const std::string kHotRangeMaxKey = "hot_" + kRangeMaxKey;
 const std::string kLinspaceStartKey = "start_key";
 const std::string kLinspaceStepSize = "step_size";
 const std::string kSaltKey = "salt";
+const std::string kCustomNameKey = "name";
+const std::string kCustomOffsetKey = "offset";
 
 // Only does a quick high-level structural validation. The semantic validation
 // is done when phases are retrieved.
@@ -126,14 +129,13 @@ std::unique_ptr<gen::Chooser> CreateChooser(
     }
     lock.unlock();
     if (dist_type == kZipfianDist) {
-      auto chooser =
-          std::make_unique<gen::ScatteredZipfianChooser>(item_count, theta, salt);
+      auto chooser = std::make_unique<gen::ScatteredZipfianChooser>(
+          item_count, theta, salt);
       lock.lock();
       return chooser;
     } else {
       assert(dist_type == kZipfianClusteredDist);
-      auto chooser =
-          std::make_unique<gen::ZipfianChooser>(item_count, theta);
+      auto chooser = std::make_unique<gen::ZipfianChooser>(item_count, theta);
       lock.lock();
       return chooser;
     }
@@ -424,6 +426,39 @@ std::unique_ptr<Generator> WorkloadConfigImpl::GetGeneratorForPhase(
 
   const YAML::Node& dist = phase_config[kInsertOpKey][kDistributionKey];
   return CreateGenerator(lock, dist, phase.num_inserts);
+}
+
+std::optional<WorkloadConfig::CustomInserts>
+WorkloadConfigImpl::GetCustomInsertsForPhase(const Phase& phase) const {
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  const YAML::Node& phase_config = raw_config_[kRunConfigKey][phase.phase_id];
+  if (!phase_config) {
+    throw std::invalid_argument("Nonexistent phase id: " + phase.phase_id);
+  }
+  if (!phase_config[kInsertOpKey] || phase.num_inserts == 0) {
+    // There are no inserts.
+    return std::optional<WorkloadConfig::CustomInserts>();
+  }
+
+  const YAML::Node& dist = phase_config[kInsertOpKey][kDistributionKey];
+  const std::string dist_type = dist[kDistributionTypeKey].as<std::string>();
+  if (dist_type != kCustomDist) {
+    // Phase does not have custom inserts.
+    return std::optional<WorkloadConfig::CustomInserts>();
+  }
+  if (!dist[kCustomNameKey]) {
+    throw std::invalid_argument("Missing custom insert name.");
+  }
+
+  WorkloadConfig::CustomInserts res;
+  res.name = dist[kCustomNameKey].as<std::string>();
+  if (dist[kCustomOffsetKey]) {
+    res.offset = dist[kCustomOffsetKey].as<uint64_t>();
+  } else {
+    res.offset = 0;
+  }
+  return res;
 }
 
 }  // namespace gen

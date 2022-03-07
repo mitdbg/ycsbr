@@ -17,6 +17,15 @@ void ParseAndPrepare(const std::string& raw_config) {
   }
 }
 
+void ParseAndPrepareWithCustomInserts(const std::string& raw_config) {
+  auto workload = PhasedWorkload::LoadFromString(raw_config);
+  workload->AddCustomInsertList("testing", {1, 2, 3});
+  auto producers = workload->GetProducers(1);
+  for (auto& producer : producers) {
+    producer.Prepare();
+  }
+}
+
 TEST(GeneratorConfigTest, InvalidProportionPct) {
   const std::string config =
       "record_size_bytes: 16\n"
@@ -260,6 +269,43 @@ TEST(GeneratorConfigTest, KeyTooLarge) {
       "    distribution:\n"
       "      type: uniform\n";
   ASSERT_THROW(ParseAndPrepare(config), std::invalid_argument);
+}
+
+TEST(GeneratorConfigTest, CustomInsertsNoName) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  num_records: 1000\n"
+      "  distribution:\n"
+      "    type: uniform\n"
+      "    range_min: 1000\n"
+      "    range_max: 20000000\n"
+      "run:\n"
+      "- num_requests: 3\n"
+      "  insert:\n"
+      "    proportion_pct: 100\n"
+      "    distribution:\n"
+      "      type: custom\n";
+  ASSERT_THROW(ParseAndPrepareWithCustomInserts(config), std::invalid_argument);
+}
+
+TEST(GeneratorConfigTest, CustomInsertsNoOffset) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  num_records: 1000\n"
+      "  distribution:\n"
+      "    type: uniform\n"
+      "    range_min: 1000\n"
+      "    range_max: 20000000\n"
+      "run:\n"
+      "- num_requests: 3\n"
+      "  insert:\n"
+      "    proportion_pct: 100\n"
+      "    distribution:\n"
+      "      type: custom\n"
+      "      name: testing\n";
+  ASSERT_NO_THROW(ParseAndPrepareWithCustomInserts(config));
 }
 
 }  // namespace

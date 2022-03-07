@@ -585,4 +585,83 @@ TEST(GeneratorTest, ClusteredZipfian) {
   ASSERT_EQ(dataset, dataset_copy);
 }
 
+TEST(GeneratorTest, CustomInserts) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  distribution:\n"
+      "    type: custom\n"
+      "run:\n"
+      "- num_requests: 3\n"
+      "  insert:\n"
+      "    proportion_pct: 100\n"
+      "    distribution:\n"
+      "      type: custom\n"
+      "      name: testing\n";
+  const std::vector<Request::Key> load_dataset = {15, 12, 16, 2000, 10};
+  std::vector<Request::Key> insert_dataset = {1, 2, 3};
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+  workload->SetCustomLoadDataset(load_dataset);
+  workload->AddCustomInsertList("testing", insert_dataset);
+
+  for (auto& key : insert_dataset) {
+    // The generator reserves the lower 16 bits for phase/thread IDs. The
+    // inserts are made by thread 1 in phase 1 (thread 0 phase 0 represents the
+    // bulk load).
+    key = (key << 16) | (1 << 8) | 1;
+  }
+
+  Session<InsertTraceInterface> session(1);
+  session.Initialize();
+  session.ReplayBulkLoadTrace(workload->GetLoadTrace());
+  const auto result = session.RunWorkload(*workload);
+  session.Terminate();
+
+  ASSERT_EQ(session.db().insert_trace.size(), insert_dataset.size());
+  for (size_t i = 0; i < insert_dataset.size(); ++i) {
+    ASSERT_EQ(session.db().insert_trace[i], insert_dataset[i]);
+  }
+}
+
+TEST(GeneratorTest, CustomInsertsWithOffset) {
+  const std::string config =
+      "record_size_bytes: 16\n"
+      "load:\n"
+      "  distribution:\n"
+      "    type: custom\n"
+      "run:\n"
+      "- num_requests: 3\n"
+      "  insert:\n"
+      "    proportion_pct: 100\n"
+      "    distribution:\n"
+      "      type: custom\n"
+      "      name: testing\n"
+      "      offset: 3\n";
+  const std::vector<Request::Key> load_dataset = {15, 12, 16, 2000, 10};
+  std::vector<Request::Key> insert_dataset = {1, 2, 3, 4, 5, 6};
+  std::unique_ptr<PhasedWorkload> workload =
+      PhasedWorkload::LoadFromString(config);
+  workload->SetCustomLoadDataset(load_dataset);
+  workload->AddCustomInsertList("testing", insert_dataset);
+
+  for (auto& key : insert_dataset) {
+    // The generator reserves the lower 16 bits for phase/thread IDs. The
+    // inserts are made by thread 1 in phase 1 (thread 0 phase 0 represents the
+    // bulk load).
+    key = (key << 16) | (1 << 8) | 1;
+  }
+
+  Session<InsertTraceInterface> session(1);
+  session.Initialize();
+  session.ReplayBulkLoadTrace(workload->GetLoadTrace());
+  const auto result = session.RunWorkload(*workload);
+  session.Terminate();
+
+  ASSERT_EQ(session.db().insert_trace.size(), insert_dataset.size() - 3);
+  for (size_t i = 0; i < insert_dataset.size() - 3; ++i) {
+    ASSERT_EQ(session.db().insert_trace[i], insert_dataset[i + 3]);
+  }
+}
+
 }  // namespace

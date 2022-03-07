@@ -113,3 +113,11 @@ run:
       hot_proportion_pct: 90
       hot_range_min: 1100
       hot_range_max: 1200
+
+- num_requests: 20
+  insert:
+    proportion_pct: 100
+    distribution:
+      type: custom
+      name: wiki_timestamps
+      offset: 10
